@@ -1,0 +1,1669 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Anna và Luna</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-screen chat on Vietnamese "vở ô li" notebook paper — the friend's words in purple school ink, corrections in the teacher's green and red pens, one big round mic */
+:root{
+  --paper:#f7f8ff; --grid:#e3e6f7; --grid-strong:#c9cfee; --margin:#f0a6a8;
+  --ink:#4a2fb8; --ink-deep:#2f1d80; --on-ink:#ffffff; --ink-wash:#ece8ff;
+  --text:#1d1838; --muted:#5f5a82; --card:#ffffff; --line:#dedbf0; --chip:#f1f0f8;
+  --ok:#18884a; --ok-bg:#e2f5e9; --red:#cf2e2e; --red-bg:#fde8e8; --star:#f2a900;
+  --skin:#f6cfae; --cheek:#f3a0a0;
+  --font-display:"Baloo 2","Comic Sans MS","Segoe UI",system-ui,sans-serif;
+  --font-body:"Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#16142a; --grid:#1f1c38; --grid-strong:#2a2650; --margin:#5b2836;
+    --ink:#a796ff; --ink-deep:#6a55d8; --on-ink:#16142a; --ink-wash:#28234d;
+    --text:#eceaff; --muted:#a9a4cc; --card:#201d3a; --line:#353060; --chip:#2b2750;
+    --ok:#52d68c; --ok-bg:#163424; --red:#ff7070; --red-bg:#3d1c25; --star:#ffc83a;
+    --skin:#f1c6a3; --cheek:#e58f8f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#16142a; --grid:#1f1c38; --grid-strong:#2a2650; --margin:#5b2836;
+  --ink:#a796ff; --ink-deep:#6a55d8; --on-ink:#16142a; --ink-wash:#28234d;
+  --text:#eceaff; --muted:#a9a4cc; --card:#201d3a; --line:#353060; --chip:#2b2750;
+  --ok:#52d68c; --ok-bg:#163424; --red:#ff7070; --red-bg:#3d1c25; --star:#ffc83a;
+  --skin:#f1c6a3; --cheek:#e58f8f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0; color:var(--text); font:16px/1.55 var(--font-body);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(90deg,transparent 22px,var(--margin) 22px,var(--margin) 24px,transparent 24px),
+    linear-gradient(var(--grid-strong) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-strong) 1px,transparent 1px),
+    linear-gradient(var(--grid) 1px,transparent 1px);
+  background-size:100% 100%,32px 32px,32px 32px,8px 8px;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.app{
+  height:100%; max-width:720px; margin:0 auto;
+  display:grid; grid-template-rows:auto minmax(0,1fr) auto; grid-template-columns:minmax(0,1fr);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.app.on-start{height:auto;min-height:100%}
+.label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+
+/* Avatar */
+.avatar{width:56px;height:56px;flex:none}
+.avatar.big{width:96px;height:96px}
+.avatar .mouth{transform-box:fill-box;transform-origin:center;transition:transform .12s ease}
+.talking .mouth{animation:talk .26s ease-in-out infinite alternate}
+@keyframes talk{from{transform:scaleY(.4)}to{transform:scaleY(1.6)}}
+
+/* Start */
+.start{grid-row:1 / -1;align-self:center;background:var(--card);border:2px solid var(--line);border-radius:26px;box-shadow:0 7px 0 var(--grid-strong);padding:22px 18px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;margin-block:16px}
+.start h1{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,7vw,40px);line-height:1.05;margin:0;color:var(--ink);text-wrap:balance}
+.start p{margin:0;color:var(--muted);max-width:52ch}
+.friends{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:460px}
+.friend{border:3px solid var(--line);background:var(--paper);border-radius:22px;padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.friend[aria-pressed="true"]{border-color:var(--ink);background:var(--ink-wash)}
+.friend .fn{font-family:var(--font-display);font-weight:800;font-size:24px;line-height:1.1;color:var(--ink)}
+.friend .fd{font-size:13px;color:var(--muted)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:460px;text-align:left}
+.form label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px;min-width:0}
+.form .full{grid-column:1 / -1}
+.form input:not([type=checkbox]),.form select{border:2px solid var(--line);background:var(--paper);border-radius:12px;padding:8px 10px;width:100%}
+.form label.check{flex-direction:row;align-items:center;gap:8px;font-weight:500}
+.primary{border:0;border-radius:16px;background:var(--ink);color:var(--on-ink);padding:12px 28px;font-weight:700;font-size:18px;box-shadow:0 5px 0 var(--ink-deep)}
+.primary:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink-deep)}
+.ghost{border:2px solid var(--line);background:var(--card);border-radius:12px;padding:6px 14px;font-weight:600}
+.ghost:hover{border-color:var(--ink)}
+.warn{background:var(--red-bg);border:2px solid var(--red);border-radius:14px;padding:10px 12px;font-size:14px;text-align:left;max-width:460px}
+.warn b{color:var(--red)}
+.tip{font-size:13px;color:var(--muted);max-width:460px}
+
+/* Chat */
+.head{display:flex;align-items:center;gap:12px;padding-block:12px 10px}
+.who{flex:1;min-width:0}
+.who .name{font-family:var(--font-display);font-weight:800;font-size:24px;line-height:1;color:var(--ink)}
+.who .status{font-size:13px;color:var(--muted)}
+.icon-btn{width:44px;height:44px;border-radius:14px;border:2px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none}
+.icon-btn svg{width:22px;height:22px;color:var(--ink)}
+.icon-btn:hover{border-color:var(--ink)}
+.chat{overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-block:6px 12px;min-height:0}
+.msg{display:flex;gap:8px;align-items:flex-end;max-width:92%}
+.msg.friend-msg{align-self:flex-start}
+.msg.kid{align-self:flex-end}
+.bubble{border-radius:22px;padding:10px 16px 8px;min-width:0;overflow-wrap:anywhere;font-family:var(--font-display);font-weight:600;line-height:1.3}
+.friend-msg .bubble{background:var(--card);border:2px solid var(--line);border-bottom-left-radius:6px;font-size:22px}
+.kid .bubble{background:var(--ink);color:var(--on-ink);border-bottom-right-radius:6px;font-size:20px}
+.say-again{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none}
+.say-again svg{width:18px;height:18px;color:var(--ink)}
+.card{border-radius:16px;padding:8px 12px 10px;font-size:14px;display:flex;flex-direction:column;gap:6px;max-width:min(480px,92%);border:2px solid}
+.card.target{align-self:flex-start;background:var(--ink-wash);border-color:var(--ink)}
+.card.fix{align-self:flex-end;background:var(--ok-bg);border-color:var(--ok)}
+.card.sound{align-self:flex-end;background:var(--red-bg);border-color:var(--red)}
+.card.check{align-self:flex-end;background:var(--card);border-color:var(--line)}
+.card.help{align-self:flex-start;background:var(--card);border-color:var(--star)}
+.card.target .label{color:var(--ink)} .card.fix .label{color:var(--ok)} .card.sound .label{color:var(--red)} .card.help .label{color:var(--text)}
+.card.help .vi-big{font-size:18px;font-weight:600;color:var(--text)}
+.mic-row{display:flex;align-items:center;justify-content:center;gap:22px}
+.side{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;padding:0;font-size:13px;font-weight:700;color:var(--muted)}
+.side .circle{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:var(--card);border:3px solid var(--line);box-shadow:0 4px 0 var(--grid-strong);font-family:var(--font-display);font-size:34px;font-weight:800;line-height:1;color:var(--ink)}
+.side .circle svg{width:28px;height:28px;color:var(--ink)}
+.side.help .circle{border-color:var(--star);color:var(--star)}
+.side:active .circle{transform:translateY(3px);box-shadow:0 1px 0 var(--grid-strong)}
+.card .vi{color:var(--text)}
+.words{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.w{font-family:var(--font-display);font-weight:700;font-size:22px;line-height:1.2;border:2px solid transparent;background:var(--card);border-radius:12px;padding:3px 10px 1px}
+button.w:hover{border-color:var(--ink)}
+.w.ok{background:var(--ok-bg);color:var(--ok)}
+.w.bad{background:var(--red-bg);color:var(--red);text-decoration:underline wavy var(--red);text-underline-offset:5px}
+.mini{border:0;background:none;padding:2px;display:grid;place-items:center}
+.mini svg{width:22px;height:22px;color:var(--ink)}
+.sys{align-self:center;text-align:center;font-size:14px;color:var(--muted);max-width:52ch}
+.summary{align-self:stretch;background:var(--card);border:2px solid var(--star);border-radius:22px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.summary h2{font-family:var(--font-display);margin:0;font-size:24px;color:var(--ink)}
+.summary ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+
+/* Mic dock */
+.dock{display:flex;flex-direction:column;align-items:center;gap:6px;padding-block:6px 12px;border-top:2px dashed var(--grid-strong)}
+.topics{display:flex;gap:6px;overflow-x:auto;width:100%;padding-bottom:2px;scrollbar-width:thin}
+.topic{flex:none;border:2px solid var(--line);background:var(--card);border-radius:999px;padding:3px 12px;font-size:14px;font-weight:600}
+.topic:hover{border-color:var(--ink)}
+.mic{
+  position:relative;width:96px;height:96px;border-radius:50%;border:0;margin-top:4px;
+  background:var(--ink);color:var(--on-ink);box-shadow:0 7px 0 var(--ink-deep);
+  display:grid;place-items:center;transition:transform .1s ease,box-shadow .1s ease,background .2s ease;
+}
+.mic svg{width:44px;height:44px}
+.mic:active{transform:translateY(5px);box-shadow:0 2px 0 var(--ink-deep)}
+.mic.listening{background:var(--red);box-shadow:0 7px 0 color-mix(in srgb,var(--red) 55%,#000)}
+.mic.listening::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:4px solid var(--red);animation:ring 1.2s ease-out infinite}
+.mic.busy{background:var(--muted);box-shadow:0 7px 0 color-mix(in srgb,var(--muted) 55%,#000)}
+@keyframes ring{from{opacity:.9;transform:scale(.9)}to{opacity:0;transform:scale(1.25)}}
+.mic-state{margin:0;font-weight:700;color:var(--text);text-align:center;font-size:16px}
+.lvl{width:min(220px,60%);height:12px;border-radius:999px;background:var(--chip);border:2px solid var(--line);overflow:hidden}
+.lvl i{display:block;height:100%;width:0;background:var(--ok);border-radius:999px;transition:width .12s linear}
+.lvl.thinking i{width:100%!important;background:var(--star);animation:pulse 1s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.35}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){.lvl.thinking i{animation:none}}
+.live{margin:0;min-height:1.4em;font-family:var(--font-display);font-size:20px;color:var(--muted);text-align:center}
+.tools{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:center}
+.link-btn{background:none;border:0;padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-weight:600;font-size:14px}
+.type-form{display:flex;gap:8px;width:100%;max-width:460px}
+.type-form input{flex:1;min-width:0;border:2px solid var(--line);background:var(--card);border-radius:12px;padding:8px 12px}
+.type-form button{border:0;border-radius:12px;background:var(--ink);color:var(--on-ink);padding:0 16px;font-weight:700}
+/* Mic check */
+dialog{border:2px solid var(--line);border-radius:22px;background:var(--card);color:var(--text);padding:0;width:min(480px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(20,16,50,.45)}
+.diag{padding:18px;display:flex;flex-direction:column;gap:10px}
+.diag h2{font-family:var(--font-display);margin:0;font-size:26px;color:var(--ink)}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:12px;font-size:15px}
+.steps li{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.meter{width:100%;height:14px;border-radius:999px;background:var(--chip);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s linear}
+.heard{margin:0;font-family:var(--font-display);font-size:20px;color:var(--ink);min-height:1.3em}
+.verdict{margin:0;padding:10px 12px;border-radius:12px;background:var(--ink-wash);font-weight:600}
+.verdict:empty{display:none}
+.good{color:var(--ok);font-weight:700} .bad{color:var(--red);font-weight:700}
+.note{margin:0;font-size:13px;color:var(--muted)}
+.dlg-actions{display:flex;justify-content:flex-end}
+@media (max-width:480px){.form{grid-template-columns:1fr}.friend-msg .bubble{font-size:20px}}
+@media (prefers-reduced-motion: reduce){.talking .mouth,.mic.listening::after{animation:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="kid" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="31" style="fill:var(--ink-wash)"/>
+    <path d="M12 36c0-16 9-25 20-25s20 9 20 25v14H12z" style="fill:var(--hair)"/>
+    <circle cx="32" cy="35" r="15" style="fill:var(--skin)"/>
+    <path d="M17 31c3-9 10-12 15-12s12 3 15 12c-6-3-11-7-13-9-3 4-9 7-17 9z" style="fill:var(--hair)"/>
+    <circle cx="26.5" cy="35" r="2" fill="#2a1c12"/><circle cx="37.5" cy="35" r="2" fill="#2a1c12"/>
+    <circle cx="23" cy="40" r="2.6" style="fill:var(--cheek)" opacity=".7"/><circle cx="41" cy="40" r="2.6" style="fill:var(--cheek)" opacity=".7"/>
+    <ellipse class="mouth" cx="32" cy="44" rx="3.6" ry="2.2" fill="#b3413f"/>
+    <path d="M42 15l5-4 1 6-5 1zM42 15l-1 6 5-2z" style="fill:var(--bow)"/>
+  </symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-ear" viewBox="0 0 24 24"><path d="M7 9a5 5 0 0 1 10 0c0 3-3 4-3 7a3 3 0 0 1-5.5 1.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M10 9.5a2 2 0 0 1 4 0c0 1.5-2 2-2 3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-speak" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="app on-start" id="app">
+  <!-- Start -->
+  <section class="start" id="start">
+    <h1>Chọn một người bạn</h1>
+    <p>Bạn ấy sẽ hỏi chuyện bé bằng tiếng Anh. Bé chỉ cần nói, micro tự bật sau mỗi câu hỏi.</p>
+    <div class="friends" id="friends"></div>
+    <div class="form">
+      <label>Tên bé <input id="fName" placeholder="Ví dụ: Linh" autocomplete="off"></label>
+      <label>Tuổi <select id="fAge"></select></label>
+      <label class="full">Trình độ
+        <select id="fLevel">
+          <option value="1">Mới bắt đầu: con vật, màu sắc, đồ ăn, gia đình</option>
+          <option value="2">Biết một chút: thêm trường lớp, thời tiết, nói cả câu</option>
+          <option value="3">Khá rồi: thêm kể chuyện hôm qua, ước mơ, lý do</option>
+        </select>
+      </label>
+      <label>Tốc độ nói
+        <select id="fRate">
+          <option value="0.75">Chậm</option>
+          <option value="0.88">Vừa (nên dùng)</option>
+          <option value="1">Bình thường</option>
+        </select>
+      </label>
+      <label class="check" style="align-self:end"><input type="checkbox" id="fAuto"> Micro tự bật</label>
+    </div>
+    <div class="warn" id="warn" hidden></div>
+    <button class="primary" id="btnStart" type="button">Bắt đầu nói chuyện</button>
+    <button class="link-btn" id="btnDiag" type="button">Kiểm tra micro</button>
+    <p class="tip">Mở bằng <b>Microsoft Edge</b> (giọng đọc hay nhất) hoặc Google Chrome, máy có micro và Internet. Khi trình duyệt hỏi quyền micro, bấm <b>Cho phép</b>. Nên đeo tai nghe cho bé.</p>
+  </section>
+
+  <!-- Chat -->
+  <header class="head" id="head" hidden>
+    <svg class="avatar" id="headAvatar" aria-hidden="true"><use href="#kid"/></svg>
+    <div class="who"><div class="name" id="friendName">Anna</div><div class="status" id="status"></div></div>
+    <button class="icon-btn" id="btnSettings" type="button" aria-label="Đổi bạn, tên, trình độ"><svg><use href="#i-gear"/></svg></button>
+  </header>
+  <main class="chat" id="chat" hidden aria-live="polite"></main>
+  <footer class="dock" id="dock" hidden>
+    <div class="topics" id="topics"></div>
+    <div class="mic-row">
+      <button class="side help" id="btnHelp" type="button" aria-label="Con chưa hiểu, giải thích giúp con"><span class="circle">?</span>Con chưa hiểu</button>
+      <button class="mic" id="btnMic" type="button" aria-label="Bấm để nói"><svg id="micIcon"><use href="#i-mic"/></svg></button>
+      <button class="side" id="btnAgain" type="button" aria-label="Nghe lại câu hỏi"><span class="circle"><svg><use href="#i-speak"/></svg></span>Nghe lại</button>
+    </div>
+    <p class="mic-state" id="micState">Bấm để nói</p>
+    <div class="lvl" id="meter" hidden aria-hidden="true"><i id="meterBar"></i></div>
+    <p class="live" id="live"></p>
+    <div class="tools">
+      <button class="link-btn" id="btnDiag2" type="button">Kiểm tra micro</button>
+      <button class="link-btn" id="btnType" type="button">Ba mẹ gõ thay</button>
+      <button class="link-btn" id="btnBye" type="button">Tạm biệt</button>
+    </div>
+    <form class="type-form" id="typeForm" hidden>
+      <input id="typeInput" autocomplete="off" placeholder="Gõ câu bé muốn nói">
+      <button type="submit">Gửi</button>
+    </form>
+  </footer>
+</div>
+
+<dialog id="diag" aria-labelledby="diagTitle">
+  <div class="diag">
+    <h2 id="diagTitle">Kiểm tra micro</h2>
+    <ol class="steps">
+      <li><b>Trình duyệt:</b> <span id="dBrowser"></span></li>
+      <li><b>Micro thu tiếng:</b> <span id="dMic">chưa kiểm tra</span>
+        <div class="meter" aria-hidden="true"><i id="dLevel"></i></div>
+        <button class="ghost" id="dMicBtn" type="button">1. Bật micro và nói thử</button>
+      </li>
+      <li><b>Nhận giọng nói:</b> <span id="dRec">chưa kiểm tra</span>
+        <button class="ghost" id="dRecBtn" type="button">2. Bấm rồi nói “Hello, my name is …”</button>
+        <p class="heard" id="dHeard"></p>
+      </li>
+    </ol>
+    <p class="verdict" id="dVerdict"></p>
+    <p class="note">Nếu vẫn không được, ba mẹ chụp màn hình khung này gửi cho Claude.</p>
+    <div class="dlg-actions"><button class="primary" id="dClose" type="button">Đóng</button></div>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* =========================================================
+   Friends
+   ========================================================= */
+const FRIENDS = {
+  emma:{name:"Anna", age:"eight", country:"Canada", pet:"dog", petName:"Max", food:"pancakes", color:"blue",
+        hobby:"draw", sib:"little brother", weather:"In Canada, we have lots of snow in winter!",
+        hair:"#7a4a26", bow:"#f2a900", desc:"8 tuổi, đến từ Canada", lang:/^en[-_]US/i, tts:"en-US-AnaNeural",
+        voices:[/Ana.*Natural/i,/Jenny.*Natural/i,/Aria.*Natural/i,/Ava.*Natural/i,/Natural/i,/Google US English/i,/Samantha/i,/Zira/i], pitch:1.12},
+  gina:{name:"Luna", age:"seven", country:"England", pet:"cat", petName:"Coco", food:"mangoes", color:"pink",
+        hobby:"swim", sib:"big sister", weather:"In London, it rains a lot. I love my red umbrella!",
+        hair:"#d39a32", bow:"#e0567a", desc:"7 tuổi, đến từ London", lang:/^en[-_](GB|AU|NZ)/i, tts:"en-GB-MaisieNeural",
+        voices:[/Maisie.*Natural/i,/Natasha.*Natural/i,/Sonia.*Natural/i,/Libby.*Natural/i,/Natural/i,/Google UK English Female/i,/Karen/i,/Hazel/i,/Catherine/i], pitch:1.2}
+};
+
+/* =========================================================
+   Word lists: "matches|form used in sentences|reaction"
+   ========================================================= */
+const LEX = {
+  animal:[
+    "cat,cats,kitty,kitten,kittens|cats|Cats are so soft and cute!",
+    "dog,dogs,puppy,puppies|dogs|Dogs are so friendly!",
+    "rabbit,rabbits,bunny,bunnies|rabbits|Rabbits hop, hop, hop!",
+    "bird,birds|birds|Birds can fly and sing!",
+    "fish,fishes|fish|Fish swim all day long!",
+    "elephant,elephants|elephants|Elephants are so big!",
+    "lion,lions|lions|Lions are strong. Roar!",
+    "tiger,tigers|tigers|Tigers have orange and black stripes!",
+    "monkey,monkeys|monkeys|Monkeys are so funny!",
+    "panda,pandas|pandas|Pandas are black and white. So cute!",
+    "horse,horses|horses|Horses run very fast!",
+    "cow,cows|cows|Cows say moo!",
+    "pig,pigs|pigs|Pigs say oink oink!",
+    "duck,ducks|ducks|Ducks say quack quack!",
+    "chicken,chickens|chickens|Chickens say cluck cluck!",
+    "mouse,mice|mice|Mice are tiny!",
+    "bear,bears|bears|Bears are big and fluffy!",
+    "giraffe,giraffes|giraffes|Giraffes have very long necks!",
+    "zebra,zebras|zebras|Zebras have black and white stripes!",
+    "turtle,turtles|turtles|Turtles are slow and cool!",
+    "frog,frogs|frogs|Frogs jump and say ribbit!",
+    "butterfly,butterflies|butterflies|Butterflies are so pretty!",
+    "dolphin,dolphins|dolphins|Dolphins are so smart!",
+    "unicorn,unicorns|unicorns|Unicorns are magic!",
+    "dinosaur,dinosaurs|dinosaurs|Dinosaurs are so big! Roar!",
+    "snake,snakes|snakes|Snakes go sss!",
+    "owl,owls|owls|Owls say hoo hoo!",
+    "sheep|sheep|Sheep are soft and fluffy!",
+    "penguin,penguins|penguins|Penguins live where it is cold!",
+    "kangaroo,kangaroos|kangaroos|Kangaroos jump so high!",
+    "hamster,hamsters|hamsters|Hamsters are so tiny and cute!"
+  ],
+  food:[
+    "ice cream|ice cream|Ice cream is cold and sweet!",
+    "french fries,fries,chips|french fries|French fries are so yummy!",
+    "rice|rice|Rice is yummy!",
+    "noodles,noodle|noodles|Noodles are so yummy!",
+    "pho,pho bo,fur,far,phở|pho|Pho! I want to try pho one day!",
+    "bread,banh mi|bread|Yum, bread!",
+    "egg,eggs|eggs|Eggs are good for you!",
+    "pizza|pizza|Pizza is so yummy!",
+    "cake,cakes|cake|Yum! I love cake!",
+    "candy,candies|candy|Candy is sweet!",
+    "cookie,cookies|cookies|Cookies are yummy!",
+    "chocolate|chocolate|Chocolate is so sweet!",
+    "banana,bananas|bananas|Bananas are yellow and yummy!",
+    "apple,apples|apples|Apples are crunchy!",
+    "mango,mangoes,mangos|mangoes|Mangoes are so sweet!",
+    "watermelon,watermelons|watermelon|Watermelon is so juicy!",
+    "orange,oranges|oranges|Oranges are juicy!",
+    "grape,grapes|grapes|Grapes are little and sweet!",
+    "strawberry,strawberries|strawberries|Strawberries are red and sweet!",
+    "soup|soup|Warm soup is so good!",
+    "chicken|chicken|Chicken is yummy!",
+    "fish|fish|Fish is good for you!",
+    "hamburger,hamburgers,burger,burgers|hamburgers|Hamburgers are yummy!",
+    "spaghetti,pasta|spaghetti|Spaghetti is yummy!",
+    "vegetables,vegetable,carrot,carrots|vegetables|Vegetables make you strong!",
+    "pancake,pancakes|pancakes|Pancakes are my favorite!",
+    "sushi|sushi|Sushi is yummy!",
+    "corn|corn|Corn is sweet!",
+    "meat,pork,beef|meat|Yum!",
+    "milk|milk|Milk makes you strong!",
+    "yogurt|yogurt|Yogurt is yummy!"
+  ],
+  drink:[
+    "orange juice,apple juice,juice|juice|Juice is yummy!",
+    "milk|milk|Milk makes you strong!",
+    "water|water|Water is good for you!",
+    "tea|tea|Warm tea is nice!",
+    "milo|milo|Milo is yummy!",
+    "yogurt|yogurt|Yogurt is yummy!",
+    "soda,coke|soda|Soda is sweet, but water is better for you!"
+  ],
+  color:[
+    "red|red|Red like an apple!", "blue|blue|Blue like the sky!", "yellow|yellow|Yellow like the sun!",
+    "green|green|Green like the grass!", "pink|pink|Pink is so pretty!", "purple|purple|Purple is so pretty!",
+    "orange|orange|Orange like an orange!", "black|black|Black is cool!", "white|white|White like snow!",
+    "brown|brown|Brown like chocolate!", "gray,grey|gray|Gray like an elephant!", "rainbow|rainbow|A rainbow has all the colors!"
+  ],
+  feeling:[
+    "happy|happy|Yay! I am happy too!", "fine|fine|Good to hear!", "good|good|That's great!", "great|great|Awesome!",
+    "ok,okay|okay|Okay!", "sad|sad|Oh no! I hope you feel better soon.", "tired|tired|Oh, you are tired. Maybe you need a nap!",
+    "sleepy|sleepy|Sleepy? Yawn!", "hungry|hungry|Hungry? Me too!", "sick|sick|Oh no! I hope you feel better soon.",
+    "excited|excited|Wow, excited! That's fun!", "bored|bored|Bored? Let's have fun together!", "angry|angry|Oh no. Take a big breath!",
+    "scared|scared|Don't worry. I am here!"
+  ],
+  family:[
+    "mom,mommy,mother,mum,mama,mummy|mom|", "dad,daddy,father,papa|dad|", "brother,brothers|brother|", "sister,sisters|sister|",
+    "grandma,grandmother,granny|grandma|", "grandpa,grandfather|grandpa|", "baby|baby|", "aunt,auntie|aunt|", "uncle|uncle|",
+    "cousin,cousins|cousin|", "parents|parents|", "family|family|"
+  ],
+  toy:[
+    "teddy bear,teddy|teddy bear|Teddy bears are so soft!", "doll,dolls,barbie|doll|Dolls are so pretty!", "ball,balls|ball|Let's play ball!",
+    "car,cars|car|Vroom vroom!", "lego,legos,blocks|Lego|You can build so many things with Lego!", "puzzle,puzzles|puzzle|Puzzles are fun!",
+    "robot,robots|robot|Beep boop! Robots are cool!", "bike,bicycle|bike|Bikes are so fun!", "kite,kites|kite|Kites fly so high!",
+    "slime|slime|Slime is so squishy!", "crayons,crayon|crayons|I love crayons!", "book,books|books|Books are great!",
+    "game,games,video games|games|Games are fun!", "ipad,tablet,phone|tablet|Tablets are fun, but not too long!"
+  ],
+  activity:[
+    "watch tv,watch cartoons,watching tv,watching cartoons,tv,cartoons,cartoon|watch cartoons|Cartoons are so fun!",
+    "ride my bike,ride a bike,riding my bike,bike|ride my bike|Riding a bike is so fun!",
+    "play games,video games,games|play games|Games are fun!",
+    "draw,drawing|draw|Drawing is so fun!", "sing,singing|sing|La la la! I love to sing too!",
+    "dance,dancing|dance|Let's dance!", "read,reading|read|Reading is great!", "swim,swimming|swim|Swimming is so fun!",
+    "cook,cooking|cook|Yum! You are a little chef!", "run,running|run|Run, run, run!", "paint,painting|paint|Painting is so pretty!",
+    "sleep,sleeping|sleep|Sleep is important!", "color,coloring|color|Coloring is fun!", "jump rope|jump rope|Jump, jump, jump!",
+    "play,playing|play|Playing is the best!"
+  ],
+  subject:[
+    "math,maths|math|Math is great! One, two, three!", "english|English|English is fun! We are speaking English now!",
+    "art,drawing|art|Art is so fun!", "music|music|La la la! Music is fun!", "pe,p e,sport,sports|P E|Running and jumping is fun!",
+    "vietnamese|Vietnamese|Vietnamese! Can you teach me some Vietnamese?", "science|science|Science is so cool!", "reading|reading|Reading is great!"
+  ],
+  schoolthing:[
+    "pencil case|a pencil case|", "pencil,pencils|a pencil|", "pen,pens|a pen|", "book,books|books|", "notebook,notebooks|a notebook|",
+    "ruler,rulers|a ruler|", "eraser,erasers,rubber|an eraser|", "crayons,crayon|crayons|", "water bottle,bottle|a water bottle|",
+    "lunch box|a lunch box|", "scissors|scissors|", "glue|glue|"
+  ],
+  job:[
+    "police officer,policeman,police|a police officer|", "doctor|a doctor|", "teacher|a teacher|", "singer|a singer|", "dancer|a dancer|",
+    "nurse|a nurse|", "artist,painter|an artist|", "astronaut|an astronaut|", "chef,cook|a chef|", "farmer|a farmer|", "pilot|a pilot|",
+    "firefighter,fireman|a firefighter|", "vet|a vet|", "scientist|a scientist|", "youtuber|a YouTuber|", "princess|a princess|",
+    "engineer|an engineer|", "driver|a driver|", "baker|a baker|", "football player,soccer player|a football player|"
+  ],
+  weather:[
+    "hot|hot|", "cold|cold|", "warm|warm|", "cool|cool|", "sunny|sunny|", "rainy,raining,rain|rainy|", "cloudy|cloudy|", "windy|windy|"
+  ],
+  place:[
+    "park|the park|The park is so fun!", "beach|the beach|I love the beach!", "zoo|the zoo|The zoo has so many animals!",
+    "playground|the playground|Slides and swings! Fun!", "pool,swimming pool|the pool|Splash splash!", "mall,supermarket,shop|the mall|Shopping is fun!",
+    "grandma house,grandmas house,grandma|my grandma's house|Grandmas are the best!", "school|school|School is fun!", "home|home|Home is cozy!",
+    "cinema,movies|the movies|Movies are so fun!", "countryside|the countryside|The countryside is so green!"
+  ]
+};
+
+/* =========================================================
+   Conversations. Each topic is a short chat; each turn is one question.
+   t: yn | pick | num | name | free | say
+   ========================================================= */
+const YN_DO = (yes, no) => ({yes, no});
+const TOPICS = [
+  {id:"hello", vi:"Chào hỏi", level:1, intro:"", fixed:true, turns:[
+    {t:"name", q:"Hi! I'm {me.name}. I'm from {me.country}. What's your name?", model:"My name is {kid}.", r:"Nice to meet you, {kid}!"},
+    {t:"pick", cat:"feeling", q:"How are you today?", model:"I am {x}.", hint:"Are you happy or sad today?", me:"I am happy today!"},
+    {t:"num", q:"How old are you?", model:"I am {n} years old.", r:"{N} years old! Cool! I am {me.age}.", hint:"Are you five, six, or seven?", def:"AGE"}
+  ]},
+  {id:"animals", vi:"Con vật", level:1, intro:"Let's talk about animals!", turns:[
+    {t:"yn", q:"Do you like animals?", model:YN_DO("Yes, I like animals.","No, I don't like animals."), r:YN_DO("Me too! I love animals.","That's okay!")},
+    {t:"pick", cat:"animal", q:"What animal do you like?", model:"I like {x}.", hint:"Do you like cats or dogs?", me:"I like {me.pet}s!"},
+    {t:"yn", q:"Do you have a pet?", model:YN_DO("Yes, I have a pet.","No, I don't have a pet."), r:YN_DO("Cool! I have a {me.pet}. Its name is {me.petName}.","I have a {me.pet}. Its name is {me.petName}.")},
+    {t:"pick", cat:"animal", q:"Which animal says meow?", expect:"cat", model:"A cat says meow.", r:{right:"Yes! A cat says meow!"}},
+    {t:"pick", cat:"animal", q:"Which animal is very big and has a long nose?", expect:"elephant", model:"An elephant has a long nose.", r:{right:"Yes! An elephant!"}}
+  ]},
+  {id:"food", vi:"Đồ ăn", level:1, intro:"Let's talk about food! Yum!", turns:[
+    {t:"yn", q:"Are you hungry now?", model:YN_DO("Yes, I am hungry.","No, I am not hungry."), r:YN_DO("Me too! Let's talk about yummy food.","Okay! Let's talk about yummy food anyway.")},
+    {t:"pick", cat:"food", q:"What food do you like?", model:"I like {x}.", hint:"Do you like rice or noodles?", me:"I like {me.food}!"},
+    {t:"yn", q:"I love {me.food}. Do you like {me.food}?", model:YN_DO("Yes, I like {me.food}.","No, I don't like {me.food}."), r:YN_DO("Yay! We both like {me.food}!","That's okay!")},
+    {t:"pick", cat:"drink", q:"What do you drink in the morning?", model:"I drink {x}.", hint:"Do you drink milk or water?"},
+    {t:"pick", cat:"food", q:"Which fruit is long and yellow?", expect:"banana", model:"A banana is long and yellow.", r:{right:"Yes! A banana!"}}
+  ]},
+  {id:"colors", vi:"Màu sắc", level:1, intro:"Let's talk about colors!", turns:[
+    {t:"pick", cat:"color", q:"What is your favorite color?", model:"My favorite color is {x}.", r:"{X}! Nice! My favorite color is {me.color}.", hint:"Do you like pink or blue?"},
+    {t:"pick", cat:"color", q:"What color is the sky?", expect:"blue", model:"The sky is blue.", r:{right:"Yes! The sky is blue!"}},
+    {t:"pick", cat:"color", q:"What color is grass?", expect:"green", model:"Grass is green.", r:{right:"That's right! Grass is green!"}},
+    {t:"pick", cat:"color", q:"What color is a banana?", expect:"yellow", model:"A banana is yellow.", r:{right:"Yes! Yellow!"}},
+    {t:"pick", cat:"color", q:"Look at your clothes. What color is your shirt?", model:"My shirt is {x}.", r:"{X}! Very nice!"}
+  ]},
+  {id:"family", vi:"Gia đình", level:1, intro:"Let's talk about your family!", turns:[
+    {t:"pick", cat:"family", q:"Who do you live with?", model:"I live with my {x}.", r:"That's nice! I live with my mom, my dad and my {me.sib}.", hint:"Do you live with your mom or your grandma?"},
+    {t:"yn", q:"Do you have a sister?", model:YN_DO("Yes, I have a sister.","No, I don't have a sister."), r:YN_DO("Cool! Sisters are fun!","Okay! I have a {me.sib}.")},
+    {t:"yn", q:"Do you have a brother?", model:YN_DO("Yes, I have a brother.","No, I don't have a brother."), r:YN_DO("Cool! Brothers are fun!","Okay!")},
+    {t:"pick", cat:"family", q:"Who cooks dinner in your family?", model:"My {x} cooks dinner.", r:"Yum! Your {x} is a good cook!"},
+    {t:"yn", q:"Do you love your family?", model:YN_DO("Yes, I love my family.","No, I don't love my family."), r:YN_DO("Aww, that's so sweet!","Hmm, I think they love you very much!")}
+  ]},
+  {id:"toys", vi:"Đồ chơi", level:1, intro:"Let's talk about toys and games!", turns:[
+    {t:"pick", cat:"toy", q:"What is your favorite toy?", model:"My favorite toy is my {x}.", hint:"Do you like dolls or teddy bears?"},
+    {t:"yn", q:"I love to {me.hobby}. Do you like to draw?", model:YN_DO("Yes, I like to draw.","No, I don't like to draw."), r:YN_DO("Yay! Drawing is so fun!","That's okay!")},
+    {t:"pick", cat:"activity", q:"What do you like to do after school?", model:"I like to {x}.", hint:"Do you like to sing or dance?", me:"I like to {me.hobby}!"},
+    {t:"yn", q:"Can you dance?", model:YN_DO("Yes, I can.","No, I can't."), r:YN_DO("Wow! Let's dance together! La la la!","Ha ha, I can't dance well too!")},
+    {t:"yn", q:"Can you ride a bike?", model:YN_DO("Yes, I can.","No, I can't."), r:YN_DO("Great! Riding a bike is so fun!","You can learn soon!")}
+  ]},
+  {id:"riddles", vi:"Đố vui", level:1, intro:"Let's play a guessing game! Listen carefully.", turns:[
+    {t:"pick", cat:"animal", q:"I am big and gray. I have a long nose. What am I?", expect:"elephant", model:"It is an elephant.", r:{right:"Yes! I am an elephant!"}},
+    {t:"pick", cat:"food", q:"I am red and round. I am a fruit. What am I?", expect:"apple", model:"It is an apple.", r:{right:"Yes! An apple!"}},
+    {t:"pick", cat:"animal", q:"I say moo. I give you milk. What am I?", expect:"cow", model:"It is a cow.", r:{right:"Moo! Yes, a cow!"}},
+    {t:"pick", cat:"animal", q:"I love bananas. I climb trees. What am I?", expect:"monkey", model:"It is a monkey.", r:{right:"Ooh ooh ah ah! Yes, a monkey!"}},
+    {t:"pick", cat:"food", q:"I am cold and sweet. You eat me on hot days. What am I?", expect:"ice cream", model:"It is ice cream.", r:{right:"Yes! Ice cream!"}}
+  ]},
+  {id:"counting", vi:"Đếm số", level:1, intro:"Let's count together!", turns:[
+    {t:"say", q:"Say it with me: one, two, three, four, five!", target:"One, two, three, four, five."},
+    {t:"say", q:"Now: six, seven, eight, nine, ten!", target:"Six, seven, eight, nine, ten."},
+    {t:"num", q:"How many fingers do you have on one hand?", expect:"five", model:"I have five fingers.", r:{right:"Yes! Five fingers!"}},
+    {t:"num", q:"How many legs does a dog have?", expect:"four", model:"A dog has four legs.", r:{right:"Yes! Four legs!"}},
+    {t:"num", q:"How many eyes do you have?", expect:"two", model:"I have two eyes.", r:{right:"Yes! Two eyes!"}}
+  ]},
+  {id:"school", vi:"Trường lớp", level:2, intro:"Let's talk about school!", turns:[
+    {t:"yn", q:"Do you like school?", model:YN_DO("Yes, I like school.","No, I don't like school."), r:YN_DO("Me too! School is fun!","Hmm, some days are hard. That's okay!")},
+    {t:"num", q:"What grade are you in?", model:"I am in grade {n}.", r:"Grade {n}! You are a big girl!", hint:"Are you in grade one?", def:"one"},
+    {t:"pick", cat:"subject", q:"What subject do you like?", model:"I like {x}.", hint:"Do you like math or English?"},
+    {t:"pick", cat:"schoolthing", q:"What is in your school bag?", model:"I have {x}.", r:"Good! You are ready for school!", hint:"Do you have a pencil in your bag?", def:"a pencil"},
+    {t:"name", q:"Who is your best friend at school?", model:"My best friend is {x}.", r:"Yay! Best friends are the best!"}
+  ]},
+  {id:"weather", vi:"Thời tiết", level:2, intro:"Let's talk about the weather!", turns:[
+    {t:"pick", cat:"weather", q:"Is it hot or cold today?", model:"It is {x} today.", r:"{X}! Thank you for telling me."},
+    {t:"yn", q:"Do you like rainy days?", model:YN_DO("Yes, I like rainy days.","No, I don't like rainy days."), r:YN_DO("Me too! I love jumping in puddles!","Me too. I like sunny days!")},
+    {t:"pick", cat:"weather", q:"{me.weather} Do you like hot days or cold days?", model:"I like {x} days.", r:"{X} days are nice!"},
+    {t:"pick", cat:"place", q:"Where do you like to go on the weekend?", model:"I like to go to {x}.", hint:"Do you like the park or the beach?"}
+  ]},
+  {id:"yesterday", vi:"Hôm qua", level:3, intro:"Let's talk about yesterday!", turns:[
+    {t:"free", q:"What did you do yesterday?", need:"past", ex:"Yesterday, I played with my friends."},
+    {t:"yn", q:"Did you go to school yesterday?", model:YN_DO("Yes, I did.","No, I didn't."), r:YN_DO("Good job!","Oh, a day off! Nice!")},
+    {t:"pick", cat:"food", q:"What did you eat for dinner last night?", model:"I ate {x}.", r:"Yum! {X} for dinner!"},
+    {t:"free", q:"Who did you play with yesterday?", need:"past", ex:"I played with my sister."}
+  ]},
+  {id:"dreams", vi:"Ước mơ", level:3, intro:"Let's talk about dreams!", turns:[
+    {t:"pick", cat:"job", q:"What do you want to be when you grow up?", model:"I want to be {x}.", r:"{X}! That is a great job!", hint:"Do you want to be a doctor or a teacher?"},
+    {t:"free", q:"Why do you want to be {last}?", need:"because", ex:"Because I want to help people."},
+    {t:"free", q:"What will you do this weekend?", need:"future", ex:"I will go to the park with my family."},
+    {t:"free", q:"What makes you happy?", need:"", ex:"I am happy when I play with my mom."}
+  ]}
+];
+
+/* =========================================================
+   Text helpers
+   ========================================================= */
+const NUMW = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
+function numToWords(n){ n = Number(n); return n <= 20 ? NUMW[n] : String(n); }
+const CONTR = [
+  [/\bi'm\b/g,"i am"], [/\bwon't\b/g,"will not"], [/\bcan't\b/g,"can not"], [/\bcannot\b/g,"can not"],
+  [/\blet's\b/g,"let us"], [/\b(it|he|she|that|what|there|who|where|here)'s\b/g,"$1 is"],
+  [/\b(\w+)n't\b/g,"$1 not"], [/\b(\w+)'re\b/g,"$1 are"], [/\b(\w+)'ve\b/g,"$1 have"],
+  [/\b(\w+)'ll\b/g,"$1 will"], [/\b(\w+)'d\b/g,"$1 would"]
+];
+const SWAPS = [["favourite","favorite"],["colour","color"],["okay","ok"],["gonna","going to"],["wanna","want to"],["grey","gray"],["mummy","mommy"]];
+function norm(s){
+  s = String(s || "").toLowerCase().replace(/[’‘`]/g, "'");
+  for (const [r, t] of CONTR) s = s.replace(r, t);
+  s = s.replace(/\d+/g, m => " " + numToWords(m) + " ");
+  s = s.replace(/'s\b/g, "s").replace(/'/g, "").replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  for (const [a, b] of SWAPS) s = s.replace(new RegExp("\\b" + a + "\\b", "g"), b);
+  return s ? s.split(" ") : [];
+}
+const HOMO = [["two","to","too"],["four","for"],["eight","ate"],["one","won"],["i","eye"],["see","sea"],["hi","high"],["mom","mum","mama","mommy"],["dad","daddy"],["you","u"],["ok","okay"]];
+function tokEq(a, b){ return a === b || HOMO.some(g => g.includes(a) && g.includes(b)); }
+function seqAt(toks, pt){
+  for (let i = 0; i + pt.length <= toks.length; i++) if (pt.every((t, j) => t === toks[i + j])) return i;
+  return -1;
+}
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+// Compile the word lists: longest phrases first so "ice cream" beats "cream"
+const LEXC = {};
+for (const [cat, rows] of Object.entries(LEX)){
+  const list = [];
+  rows.forEach(row => {
+    const [keys, like, react] = row.split("|");
+    keys.split(",").forEach(k => list.push({key:norm(k), like, react, head:keys.split(",")[0]}));
+  });
+  LEXC[cat] = list.sort((a, b) => b.key.length - a.key.length);
+}
+function findLex(cat, toks){
+  for (const e of LEXC[cat]) if (e.key.length && seqAt(toks, e.key) >= 0) return e;
+  return null;
+}
+
+/* ---------- Sentences: display words + normalized tokens, for word-by-word checking ---------- */
+let wildSet = new Set();
+function makeSentence(text){
+  const items = [];
+  text.split(/\s+/).filter(Boolean).forEach(d => {
+    const toks = norm(d);
+    if (!toks.length && items.length){ items[items.length - 1].disp += d; return; }
+    items.push({disp:d, toks, wild:toks.length > 0 && toks.every(t => wildSet.has(t))});
+  });
+  return {items, text};
+}
+function lcsMatch(t, h){
+  const n = t.length, m = h.length;
+  const dp = Array.from({length:n + 1}, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    dp[i][j] = tokEq(t[i], h[j]) ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const ok = new Array(n).fill(false);
+  let i = 0, j = 0;
+  while (i < n && j < m){
+    if (tokEq(t[i], h[j]) && dp[i][j] === dp[i+1][j+1] + 1){ ok[i] = true; i++; j++; }
+    else if (dp[i+1][j] >= dp[i][j+1]) i++;
+    else j++;
+  }
+  return ok;
+}
+function checkSentence(sent, alts){
+  const flat = [];
+  sent.items.forEach((it, idx) => { if (!it.wild) it.toks.forEach(w => flat.push({w, idx})); });
+  let best = null;
+  for (const a of alts){
+    const ok = lcsMatch(flat.map(f => f.w), norm(a));
+    const okItems = sent.items.map((it, idx) => it.wild || flat.every((f, k) => f.idx !== idx || ok[k]));
+    const missing = ok.filter(x => !x).length;
+    if (!best || missing < best.missing) best = {okItems, missing, total:flat.length, heard:a};
+  }
+  return best;
+}
+const passes = chk => chk.missing <= (chk.total >= 5 ? 1 : 0);
+
+/* ---------- Pronunciation tips (Vietnamese, for the parent) ---------- */
+function tipFor(word){
+  const w = word.toLowerCase().replace(/[^a-z]/g, "");
+  if (/th/.test(w)) return "Âm “th”: đặt đầu lưỡi giữa hai hàm răng rồi thổi nhẹ.";
+  if (/sh/.test(w)) return "Âm “sh”: chu môi, đọc như khi nói “suỵt”.";
+  if (/^v|v/.test(w)) return "Âm “v”: răng trên chạm nhẹ môi dưới, rung cổ họng.";
+  if (/(x|ks|ts|ps)$/.test(w) || /[^s]s$/.test(w)) return "Nhớ đọc rõ âm “s” ở cuối từ.";
+  if (/[tdkpg]$/.test(w)) return "Nhớ đọc rõ âm cuối của từ, đừng nuốt mất âm.";
+  if (/^r/.test(w)) return "Âm “r”: cong lưỡi lên, không chạm vòm miệng.";
+  if (/l$/.test(w)) return "Âm “l” cuối: đầu lưỡi chạm vào lợi trên.";
+  return "Nghe kỹ rồi đọc chậm từng phần của từ.";
+}
+// Words a Vietnamese child often says that the recognizer writes as another word (number answers only)
+const NUM_CONFUSE = {tree:"three", free:"three", sick:"six", sis:"six", sex:"six", fife:"five", fight:"five", fi:"five", sefen:"seven", tu:"two"};
+
+/* ---------- Grammar fixes: one rule per answer ---------- */
+const PAST = {go:"went",eat:"ate",play:"played",watch:"watched",see:"saw",have:"had",do:"did",make:"made",draw:"drew",swim:"swam",run:"ran",get:"got",come:"came",sing:"sang",sleep:"slept",ride:"rode",drink:"drank",buy:"bought",visit:"visited",cook:"cooked",dance:"danced",walk:"walked",help:"helped",clean:"cleaned",take:"took",give:"gave",meet:"met",fly:"flew",write:"wrote",study:"studied",stay:"stayed",talk:"talked",jump:"jumped",paint:"painted",listen:"listened",learn:"learned",like:"liked",is:"was",am:"was",are:"were"};
+const OVERREG = {goed:"went",eated:"ate",runned:"ran",swimmed:"swam",buyed:"bought",drawed:"drew",singed:"sang",sleeped:"slept",haved:"had",maked:"made",comed:"came",getted:"got",drinked:"drank",rided:"rode",taked:"took",gived:"gave",writed:"wrote",flyed:"flew",doed:"did",seed:"saw",meeted:"met"};
+const IRREG = new Set(Object.values(PAST).concat(["read","built","caught","thought","told","said","heard","won","woke","began","brought","fell","felt","kept","left","lost","put","sent","spent","stood","threw","wore","sat","found","did"]));
+const THIRD = {like:"likes",have:"has",go:"goes",play:"plays",eat:"eats",cook:"cooks",love:"loves",want:"wants",work:"works",live:"lives",watch:"watches",read:"reads",drink:"drinks",sleep:"sleeps",swim:"swims",run:"runs",dance:"dances",sing:"sings",help:"helps",make:"makes",drive:"drives",teach:"teaches",wash:"washes"};
+const FAMILY_N = new Set(["mom","mommy","mother","dad","daddy","father","brother","sister","grandma","grandpa","friend","teacher","cat","dog","baby","aunt","uncle","cousin"]);
+const SUBJ = new Set(["i","we","you","they","he","she"]);
+const AN_WORDS = new Set(["apple","egg","elephant","orange","umbrella","owl","octopus","ant","eraser","artist","astronaut","engineer","eagle","onion","airplane","ice","igloo","insect"]);
+const COUNTABLE = new Set();
+["animal","toy","schoolthing","family"].forEach(c => LEXC[c].forEach(e => { if (e.key.length === 1) COUNTABLE.add(e.key[0]); }));
+["apple","banana","mango","orange","grape","strawberry","egg","cookie","candy","cake","carrot","hamburger","pancake","pencil","book","flower","tree","finger","leg","eye","hand","friend","toy"].forEach(w => COUNTABLE.add(w));
+const NUM_SET = new Set(NUMW.slice(2).concat(["many"]));
+const ADJ = new Set(["red","blue","yellow","green","pink","purple","orange","black","white","brown","gray","big","small","cute","hot","cold","sunny","rainy","good","nice","fun","happy","sad","yummy","beautiful","pretty"]);
+function plural(w){
+  const irr = {mouse:"mice",child:"children",fish:"fish",sheep:"sheep",person:"people",foot:"feet",tooth:"teeth",man:"men",woman:"women"};
+  if (irr[w]) return irr[w];
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ies";
+  if (/(s|sh|ch|x)$/.test(w) || /(mango|potato|tomato)$/.test(w)) return w + "es";
+  return w + "s";
+}
+function grammarFix(t){
+  if (t.length < 2) return null;
+  const out = t.slice();
+  const done = (vi) => ({tokens:out, vi});
+  // goed → went
+  for (let i = 0; i < t.length; i++) if (OVERREG[t[i]]){ out[i] = OVERREG[t[i]]; return done("Động từ này đặc biệt: quá khứ của nó là “" + out[i] + "”."); }
+  // yesterday + present verb
+  if (t.includes("yesterday") || seqAt(t, ["last","night"]) >= 0 || seqAt(t, ["last","week"]) >= 0 || seqAt(t, ["last","weekend"]) >= 0){
+    if (!t.some(w => IRREG.has(w) || (/ed$/.test(w) && w.length > 3))){
+      for (let i = 1; i < t.length; i++){
+        const prev = t[i-1];
+        if (PAST[t[i]] && (SUBJ.has(prev) || FAMILY_N.has(prev)) && !["to","did","can","will"].includes(prev)){
+          out[i] = PAST[t[i]];
+          return done("Kể chuyện đã qua (yesterday) thì dùng động từ quá khứ: go → went, play → played, eat → ate.");
+        }
+      }
+    }
+  }
+  // I have six year old / I am six year old / I six years old
+  const oi = t.indexOf("old");
+  if (oi > 0){
+    const ni = t.findIndex(w => NUMW.includes(w));
+    if (ni >= 0 && ni < oi && (t.includes("have") || t[ni+1] === "year" || (t[0] === "i" && t[1] !== "am"))){
+      out.splice(0, out.length, "i", "am", t[ni], "years", "old");
+      return done("Nói tuổi: “I am … years old” (dùng “am”, và “years” có s).");
+    }
+  }
+  // I very like X → I like X very much
+  const vi_ = seqAt(t, ["very","like"]);
+  if (vi_ >= 0){ out.splice(vi_, 1); out.push("very", "much"); return done("Người bản ngữ nói “I like … very much”, không nói “I very like”."); }
+  // I am like → I like
+  for (let i = 0; i + 1 < t.length; i++){
+    if ((t[i] === "am" || t[i] === "is" || t[i] === "are") && i > 0 && SUBJ.has(t[i-1]) && ["like","love","want","go","play","have","eat"].includes(t[i+1]) && t[i+2] !== "to"){
+      out.splice(i, 1); return done("Không dùng “am/is” trước động từ: nói “I like”, không nói “I am like”.");
+    }
+  }
+  // I no like / I not like → I don't like
+  for (let i = 0; i + 1 < t.length; i++){
+    if ((t[i] === "no" || t[i] === "not") && i > 0 && SUBJ.has(t[i-1]) && THIRD[t[i+1]] && t[i-1] !== "do"){
+      out[i] = (t[i-1] === "he" || t[i-1] === "she") ? "doesn't" : "don't";
+      return done("Câu phủ định dùng “don't”: I don't like …");
+    }
+  }
+  // he like / my mom cook → he likes / my mom cooks
+  for (let i = 1; i < t.length; i++){
+    const prev = t[i-1], subj3 = prev === "he" || prev === "she" || (FAMILY_N.has(prev) && t[i-2] === "my");
+    if (subj3 && THIRD[t[i]]){ out[i] = THIRD[t[i]]; return done("Với he, she, my mom… thì động từ thêm “s”: likes, has, goes."); }
+  }
+  // I has → I have
+  for (let i = 1; i < t.length; i++) if (t[i] === "has" && ["i","you","we","they"].includes(t[i-1])){ out[i] = "have"; return done("Với I, you, we thì dùng “have”."); }
+  // me like → I like
+  if (t[0] === "me" && THIRD[t[1]]){ out[0] = "i"; return done("Chủ ngữ là “I”, không phải “me”."); }
+  // a apple → an apple
+  for (let i = 0; i + 1 < t.length; i++) if (t[i] === "a" && AN_WORDS.has(t[i+1])){ out[i] = "an"; return done("Trước từ bắt đầu bằng a, e, i, o, u thì dùng “an”: an apple."); }
+  // two cat → two cats
+  for (let i = 0; i + 1 < t.length; i++) if (NUM_SET.has(t[i]) && COUNTABLE.has(t[i+1])){ out[i+1] = plural(t[i+1]); return done("Từ hai trở lên thì danh từ thêm “s”: two cats."); }
+  // my name Linh → my name is Linh ; it red → it is red
+  if (t[0] === "my" && t[1] === "name" && t[2] && t[2] !== "is"){ out.splice(2, 0, "is"); return done("Nhớ thêm “is”: My name is …"); }
+  for (let i = 0; i + 1 < t.length; i++) if ((t[i] === "it" || t[i] === "she" || t[i] === "he") && ADJ.has(t[i+1])){ out.splice(i+1, 0, "is"); return done("Nhớ thêm “is”: It is red. She is happy."); }
+  return null;
+}
+function tokensToSentence(tokens){
+  const names = new Map([...wildSet].map(w => [w, cap(w)]));
+  let s = tokens.map(w => w === "i" ? "I" : (names.get(w) || w)).join(" ")
+    .replace(/\bdo not\b/g, "don't").replace(/\bdoes not\b/g, "doesn't").replace(/\bi am\b/gi, "I am");
+  s = cap(s);
+  return /[.!?]$/.test(s) ? s : s + ".";
+}
+function swapPronouns(tokens){
+  const map = {i:"you", my:"your", me:"you", am:"are", mine:"yours", myself:"yourself", we:"you", our:"your", us:"you"};
+  return tokens.map((w, i) => (w === "was" && tokens[i-1] === "i") ? "were" : (map[w] || w)).join(" ");
+}
+
+/* =========================================================
+   Speech
+   ========================================================= */
+let voices = [];
+const hasTTS = "speechSynthesis" in window;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function loadVoices(){ if (hasTTS) voices = speechSynthesis.getVoices(); }
+function voiceFor(F){
+  const en = voices.filter(v => /^en/i.test(v.lang));
+  const own = en.filter(v => F.lang.test(v.lang));
+  for (const p of F.voices){ const v = own.find(v => p.test(v.name)) || null; if (v) return v; }
+  for (const p of F.voices){ const v = en.find(v => p.test(v.name)); if (v) return v; }
+  return own[0] || en.find(v => /^en[-_]US/i.test(v.lang)) || en[0] || null;
+}
+/* The voice helper (emma_voice_server.py --http, started by the .bat) listens with Whisper and speaks
+   with Microsoft child voices. When the page is served by it, it replaces the browser's own speech. */
+let HELPER = false, lastUnclear = false;
+fetch("/api/ping", {cache:"no-store"}).then(r => r.ok ? r.json() : null).then(s => {
+  if (!s || !s.ok) return;
+  HELPER = true;
+  $("#warn").hidden = true;
+  if (typeof setMic === "function" && !$("#dock").hidden && micMode === "idle") setMic("idle");
+}).catch(() => {});
+const pct = r => (r >= 1 ? "+" : "") + Math.round((r - 1) * 100) + "%";
+const VI_VOICE = "vi-VN-HoaiMyNeural";
+async function helperSpeak(text, rate, lang){
+  const voice = lang === "vi" ? VI_VOICE : F.tts;
+  const r = await fetch("/api/speak", {method:"POST", body:JSON.stringify({text, voice, rate:lang === "vi" ? "+0%" : pct(rate || prefs.rate)})});
+  const p = await r.json();
+  if (!r.ok || p.error) throw new Error(p.error || "speak failed");
+}
+async function helperListen(){
+  // 1.1 s of quiet ends her turn: short enough to feel quick, long enough for a small pause mid-sentence
+  const poll = setInterval(() => {
+    fetch("/api/state", {cache:"no-store"}).then(r => r.json()).then(st => showHearing(st.phase, st.level)).catch(() => {});
+  }, 150);
+  let r, p;
+  try{
+    r = await fetch("/api/listen", {method:"POST", body:JSON.stringify({max_wait_seconds:10, pause_seconds:1.1})});
+    p = await r.json();
+  }finally{ clearInterval(poll); }
+  if (!r.ok || p.error) throw "helper: " + (p.error || r.status);
+  lastUnclear = !!p.unclear;
+  return p.heard && p.text ? [p.text] : [];
+}
+/* ---------- Listening on a tablet: Whisper running inside the page ----------
+   Browsers without Google/Microsoft speech services (Huawei tablets, Cốc Cốc…) still give the page the
+   microphone; the page then transcribes on the device itself with Whisper (downloaded once, then cached). */
+const ASR_LIB = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
+const ASR_MODEL = "Xenova/whisper-tiny.en";
+let srBroken = false, srSilent = 0, asr = null, asrLoading = null, micStream = null, audioCtx = null;
+function engine(){
+  if (HELPER) return "helper";
+  const localOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && typeof WebAssembly === "object" && window.isSecureContext;
+  const huawei = /HuaweiBrowser|HarmonyOS|HMSCore/i.test(navigator.userAgent);
+  if (SR && (isEdge || isChrome) && !huawei && !srBroken) return "browser";
+  return localOk ? "local" : (SR ? "browser" : "");
+}
+const canListen = () => !!engine();
+function loadAsr(){
+  if (asr) return Promise.resolve(asr);
+  if (!asrLoading){
+    asrLoading = (async () => {
+      const { pipeline } = await import(ASR_LIB);
+      const seen = {};
+      asr = await pipeline("automatic-speech-recognition", ASR_MODEL, {
+        progress_callback: p => {
+          if (p.status !== "progress" || !p.total) return;
+          seen[p.file] = [p.loaded, p.total];
+          const all = Object.values(seen), got = all.reduce((a, v) => a + v[0], 0), tot = all.reduce((a, v) => a + v[1], 0);
+          if (micMode !== "speaking") $("#micState").textContent = "Đang tải bộ nghe (chỉ lần đầu): " + Math.round(got / 1048576) + "/" + Math.round(tot / 1048576) + " MB";
+        }
+      });
+      return asr;
+    })().catch(e => { asrLoading = null; throw e; });
+  }
+  return asrLoading;
+}
+function recordLocal(maxWait, pause, maxLen){
+  return new Promise(async (resolve, reject) => {
+    try{
+      if (!micStream) micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+    }catch(e){ return reject(e && e.name === "NotAllowedError" ? "not-allowed" : "audio-capture"); }
+    const src = audioCtx.createMediaStreamSource(micStream);
+    const proc = audioCtx.createScriptProcessor(2048, 1, 1);
+    const rate = audioCtx.sampleRate, t0 = performance.now();
+    let pre = [], chunks = [], levels = [], noise = 0, started = false, loud = 0, last = t0, done = false;
+    const finish = out => {
+      if (done) return; done = true;
+      proc.onaudioprocess = null; try{ src.disconnect(); proc.disconnect(); }catch(e){}
+      resolve(out);
+    };
+    proc.onaudioprocess = e => {
+      const x = new Float32Array(e.inputBuffer.getChannelData(0));
+      let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i];
+      const rms = Math.sqrt(s / x.length), now = performance.now();
+      if (levels.length < 6){ levels.push(rms); pre.push(x); if (levels.length === 6) noise = levels.slice().sort((a, b) => a - b)[2]; return; }
+      const th = Math.max(0.012, noise * 3);  // the tablet's own gain control keeps speech well above this
+      showHearing(started ? "hearing" : "waiting", rms / (th * 3));
+      if (!started){
+        pre.push(x); if (pre.length > 8) pre.shift();
+        loud = rms > th ? loud + 1 : 0;
+        if (loud >= 2){ started = true; chunks = pre.slice(); last = now; }
+        else if (now - t0 > maxWait * 1000) finish(null);
+      } else {
+        chunks.push(x);
+        if (rms > th) last = now;
+        if (now - last > pause * 1000 || now - t0 > maxLen * 1000) finish({chunks, rate});
+      }
+    };
+    src.connect(proc); proc.connect(audioCtx.destination);
+  });
+}
+function to16k(chunks, rate){
+  const n = chunks.reduce((a, c) => a + c.length, 0), x = new Float32Array(n);
+  let o = 0; for (const c of chunks){ x.set(c, o); o += c.length; }
+  if (rate === 16000) return x;
+  const step = rate / 16000, out = new Float32Array(Math.floor(n / step));
+  for (let i = 0; i < out.length; i++){ const p = i * step, k = Math.floor(p), f = p - k; out[i] = x[k] * (1 - f) + (x[k + 1] || 0) * f; }
+  return out;
+}
+async function localListen(){
+  const model = loadAsr();  // start the download while she talks
+  const rec = await recordLocal(10, 1.1, 15);
+  if (!rec){ lastUnclear = false; return []; }
+  showHearing("thinking", 0);
+  const out = await model.then(m => m(to16k(rec.chunks, rec.rate)));
+  const text = String(out && out.text || "").trim();
+  const low = text.toLowerCase();
+  if (!text || /\[|\(|for watching|subscribe/.test(low) || ["you", "you.", "bye.", "thank you."].includes(low)){ lastUnclear = true; return []; }
+  return [text];
+}
+
+async function speakOne(text, rate, lang){
+  if (HELPER && text){
+    try{ return await helperSpeak(text, rate, lang); }catch(e){ /* fall back to the browser voice */ }
+  }
+  return browserSpeak(text, rate, lang);
+}
+function browserSpeak(text, rate, lang){
+  return new Promise(res => {
+    if (!hasTTS || !text) return res();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = lang === "vi" ? voices.find(v => /^vi/i.test(v.lang)) : voiceFor(F);
+    if (lang === "vi" && !v) return res();  // no Vietnamese voice on this browser: the text stays on screen
+    if (v){ u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+    u.rate = rate || prefs.rate; u.pitch = v && /Natural/i.test(v.name) ? 1 : F.pitch;
+    let fin = false;
+    const done = () => { if (!fin){ fin = true; clearTimeout(t); res(); } };
+    const t = setTimeout(done, 2500 + text.length * 140 / u.rate);
+    u.onend = done; u.onerror = done;
+    speechSynthesis.resume(); speechSynthesis.speak(u);
+  });
+}
+let talkToken = 0;
+async function talk(parts){
+  const my = ++talkToken;
+  if (hasTTS) speechSynthesis.cancel();
+  setMic("speaking");
+  for (const p of parts){
+    if (my !== talkToken) return false;
+    await speakOne(typeof p === "string" ? p : p.text, typeof p === "string" ? 0 : p.rate, typeof p === "string" ? "" : p.lang);
+  }
+  return my === talkToken;
+}
+function hush(){ talkToken++; if (hasTTS) speechSynthesis.cancel(); }
+
+let rec = null, micMode = "idle", recTrace = [];
+function listen(){
+  return new Promise((resolve, reject) => {
+    const r = new SR(); rec = r;
+    // Same setup as the mic check, which works on Edge: one utterance, one guess,
+    // and the recognizer decides when the child has finished.
+    r.lang = "en-US"; r.continuous = false; r.interimResults = true;
+    if (!isEdge) r.maxAlternatives = 5;
+    let finals = [], err = null, latest = "";
+    recTrace = [];
+    ["audiostart","soundstart","speechstart","speechend","nomatch"].forEach(ev => r.addEventListener(ev, () => recTrace.push(ev)));
+    // Safety net only: stop if nothing has ended after a long while
+    const hard = setTimeout(() => { try{ r.stop(); }catch(e){} }, 15000);
+    r.onresult = e => {
+      let interim = ""; finals = [];
+      for (let i = 0; i < e.results.length; i++){
+        const res = e.results[i];
+        if (res.isFinal) finals.push(Array.from(res).map(a => a.transcript.trim()));
+        else interim += " " + res[0].transcript;
+      }
+      latest = (finals.map(f => f[0]).join(" ") + interim).trim() || latest;
+      $("#live").textContent = latest;
+    };
+    r.onerror = e => { err = e.error; };
+    r.onend = () => {
+      clearTimeout(hard); rec = null;
+      // Edge sometimes ends without marking the last words as final: keep what was shown on screen.
+      if (!finals.length && latest) return resolve([latest]);
+      if (!finals.length){ return (err && err !== "no-speech" && err !== "aborted") ? reject(err) : resolve([]); }
+      const maxA = Math.max(...finals.map(f => f.length)), alts = [];
+      for (let a = 0; a < maxA; a++) alts.push(finals.map(f => f[Math.min(a, f.length - 1)]).join(" ").trim());
+      resolve([...new Set(alts)].filter(Boolean));
+    };
+    try{ r.start(); }catch(e){ clearTimeout(hard); rec = null; reject("start-failed"); }
+  });
+}
+
+/* =========================================================
+   UI helpers
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const chat = $("#chat");
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("eg:" + k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("eg:" + k, JSON.stringify(v)); }catch(e){} }
+};
+const prefs = Object.assign({friend:"emma", name:"", age:6, level:"1", rate:0.88, auto:true}, store.get("prefs", {}));
+let F = FRIENDS[prefs.friend];
+
+function scrollDown(){ chat.scrollTop = chat.scrollHeight; }
+function speakBtn(text, rate, cls){
+  const b = document.createElement("button");
+  b.type = "button"; b.className = cls || "say-again"; b.setAttribute("aria-label", "Nghe lại");
+  b.innerHTML = '<svg><use href="#i-speak"/></svg>';
+  b.onclick = () => { stopListening(); talk([{text, rate}]).then(() => setMic("idle")); };
+  return b;
+}
+function addFriend(text){
+  const m = document.createElement("div"); m.className = "msg friend-msg";
+  const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
+  m.append(bub, speakBtn(text, prefs.rate)); chat.appendChild(m); scrollDown();
+}
+function addKid(text){
+  const m = document.createElement("div"); m.className = "msg kid";
+  const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
+  m.appendChild(bub); chat.appendChild(m); scrollDown();
+}
+function wordsEl(sent, okItems){
+  const box = document.createElement("div"); box.className = "words";
+  sent.items.forEach((it, i) => {
+    const b = document.createElement("button"); b.type = "button";
+    b.className = "w" + (okItems ? (okItems[i] ? " ok" : " bad") : "");
+    b.textContent = it.disp; b.title = "Bấm để nghe từ này";
+    b.onclick = () => { stopListening(); talk([{text:it.disp.replace(/[^\p{L}\p{N}' ]/gu, ""), rate:0.6}]).then(() => setMic("idle")); };
+    box.appendChild(b);
+  });
+  return box;
+}
+function addCard(cls, label, sent, okItems, vi){
+  const c = document.createElement("div"); c.className = "card " + cls;
+  const l = document.createElement("span"); l.className = "label"; l.textContent = label;
+  const row = document.createElement("div"); row.className = "words";
+  row.append(wordsEl(sent, okItems), speakBtn(sent.text, prefs.rate * 0.9, "mini"));
+  c.append(l, row);
+  if (vi){ const v = document.createElement("span"); v.className = "vi"; v.textContent = vi; c.appendChild(v); }
+  chat.appendChild(c); scrollDown();
+}
+function addSys(text){ const p = document.createElement("div"); p.className = "sys"; p.textContent = text; chat.appendChild(p); scrollDown(); return p; }
+function setMic(mode){
+  micMode = mode;
+  const b = $("#btnMic"), s = $("#micState");
+  b.classList.toggle("listening", mode === "listening");
+  b.classList.toggle("busy", mode === "speaking");
+  document.body.classList.toggle("talking", mode === "speaking");
+  $("#micIcon").innerHTML = mode === "listening" ? '<use href="#i-ear"/>' : '<use href="#i-mic"/>';
+  s.textContent = mode === "listening" ? "Con nói đi, " + F.name + " đang nghe!" :
+                  mode === "speaking" ? F.name + " đang nói…" :
+                  canListen() ? "Bấm để nói" : "Ba mẹ gõ câu trả lời bên dưới";
+  $("#status").textContent = mode === "listening" ? "Đang nghe…" : mode === "speaking" ? "Đang nói…" : "Bạn nói tiếng Anh của bé";
+  if (mode !== "listening") $("#live").textContent = "";
+  $("#meter").hidden = mode !== "listening" || engine() === "browser";
+  $("#meter").classList.remove("thinking"); $("#meterBar").style.width = "0";
+}
+/* Live feedback while listening, so the child sees her voice going in and knows when it is being understood */
+function showHearing(phase, level){
+  if (micMode !== "listening") return;
+  const m = $("#meter"), s = $("#micState");
+  m.hidden = false;
+  if (phase === "thinking"){
+    m.classList.add("thinking");
+    s.textContent = "Đã nghe xong! " + F.name + " đang hiểu câu của con…";
+    return;
+  }
+  m.classList.remove("thinking");
+  $("#meterBar").style.width = Math.round(Math.min(1, level || 0) * 100) + "%";
+  s.textContent = phase === "hearing" ? F.name + " đang nghe con nói…" : "Con nói đi, " + F.name + " đang nghe!";
+}
+
+/* =========================================================
+   Conversation engine
+   ========================================================= */
+const S = {topics:[], ti:0, qi:0, mode:"answer", target:null, tries:0, fails:0, after:"", lastX:"", repeats:0, learned:[], used:new Set()};
+const PRAISE = ["Great!","Good job!","Awesome!","Wonderful!","Well done!","Super!"];
+const SORRY = ["Sorry, I didn't get that.","Hmm, can you say that again?","Oops, I didn't hear you well."];
+const kidName = () => prefs.name || "my friend";
+const level = () => Number(prefs.level);
+const turn = () => S.topics[S.ti].turns[S.qi];
+
+function fill(s, v = {}){
+  return String(s || "")
+    .replace(/\{me\.(\w+)\}/g, (_, k) => F[k] || "")
+    .replace(/\{kid\}/g, kidName())
+    .replace(/\{x\}/g, v.x || "").replace(/\{X\}/g, cap(v.x || ""))
+    .replace(/\{n\}/g, v.n || "").replace(/\{N\}/g, cap(v.n || ""))
+    .replace(/\{last\}/g, S.lastX || "that");
+}
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function planTopics(first){
+  const pool = TOPICS.filter(t => !t.fixed && t.level <= level() && !S.used.has(t.id));
+  const pref = level() >= 2 ? pool.filter(t => t.level >= 2) : [];
+  const rest = shuffle(pool.filter(t => !pref.includes(t)));
+  const order = shuffle(pref).concat(rest).slice(0, 4);
+  return first ? [TOPICS[0]].concat(order) : order;
+}
+
+async function friendSays(text, speech, then){
+  addFriend(text);
+  if (then) then();
+  const ok = await talk(speech || [text]);
+  if (!ok) return;
+  setMic("idle");
+  if (prefs.auto && canListen() && !S.ended) setTimeout(() => { if (micMode === "idle") startListening(true); }, 600);
+}
+
+function askCurrent(prefix){
+  const tn = turn();
+  S.fails = 0;
+  const q = fill(tn.q);
+  if (tn.t === "say"){
+    S.mode = "repeat"; S.target = makeSentence(tn.target); S.tries = 0; S.after = ""; S.isDrill = true;
+    friendSays((prefix ? prefix + " " : "") + q, null, () => addCard("target", "Con nói theo câu này", S.target));
+    return;
+  }
+  S.mode = "answer"; S.isDrill = false;
+  friendSays((prefix ? prefix + " " : "") + q);
+}
+function advance(prefix){
+  S.qi++;
+  if (S.qi >= S.topics[S.ti].turns.length){
+    S.used.add(S.topics[S.ti].id);
+    S.ti++; S.qi = 0;
+    if (S.ti >= S.topics.length) return closing(prefix);
+    prefix = (prefix ? prefix + " " : "") + fill(S.topics[S.ti].intro);
+  }
+  askCurrent(prefix);
+}
+function startRepeat(sentenceText, line, after, learn){
+  S.mode = "repeat"; S.target = makeSentence(sentenceText); S.tries = 0; S.after = after || ""; S.repeats++; S.isDrill = false;
+  if (learn) S.learned.push(sentenceText);
+  friendSays(line, null, () => addCard("target", "Con nói theo câu này", S.target));
+}
+
+function detectYN(toks){
+  if (toks.some(w => ["yes","yeah","yep","yup","sure","yea"].includes(w))) return "yes";
+  if (toks.some(w => ["no","nope","not"].includes(w))) return "no";
+  if (seqAt(toks, ["i","do"]) >= 0 || seqAt(toks, ["i","can"]) >= 0 || seqAt(toks, ["i","have"]) >= 0 || seqAt(toks, ["i","am"]) >= 0 || seqAt(toks, ["i","like"]) >= 0 || seqAt(toks, ["i","did"]) >= 0) return "yes";
+  return null;
+}
+function parse(tn, alts){
+  for (const a of alts){
+    let toks = norm(a), pron = null;
+    if (!toks.length) continue;
+    if (tn.t === "yn"){ const ans = detectYN(toks); if (ans) return {ok:true, ans, toks, heard:a}; }
+    if (tn.t === "pick"){
+      const e = findLex(tn.cat, toks);
+      if (e) return {ok:true, entry:e, x:e.like, toks, heard:a, right:tn.expect ? e.head === tn.expect || e.like.replace(/^an? /, "") === tn.expect : undefined};
+    }
+    if (tn.t === "num"){
+      let n = toks.find(w => NUMW.includes(w));
+      if (!n){
+        const c = toks.find(w => NUM_CONFUSE[w]);
+        if (c && toks.length <= 6){ n = NUM_CONFUSE[c]; pron = {word:n, heard:c}; }
+      }
+      if (!n && toks.length <= 3){ const h = toks.find(w => ["to","too"].includes(w)) ? "two" : toks.includes("for") ? "four" : null; n = h; }
+      if (n) return {ok:true, n, toks, heard:pron ? a.replace(new RegExp("\\b" + pron.heard + "\\b", "i"), n) : a, pron, right:tn.expect ? n === tn.expect : undefined};
+    }
+    if (tn.t === "name"){
+      let x = null;
+      for (const st of [["my","name","is"],["name","is"],["i","am"],["it","is"],["is"]]){
+        const i = seqAt(toks, st);
+        if (i >= 0 && toks.length > i + st.length){ x = toks.slice(i + st.length).join(" "); break; }
+      }
+      if (!x && toks.length <= 3) x = toks.join(" ");
+      if (x) return {ok:true, x:x.split(" ").map(cap).join(" "), toks, heard:a};
+    }
+    if (tn.t === "free") return {ok:true, toks, heard:a};
+  }
+  const toks0 = norm(alts[0]);
+  if (tn.def && toks0.some(w => ["yes","yeah","yep","yup","sure"].includes(w))){
+    const d = tn.def === "AGE" ? numToWords(prefs.age) : tn.def;
+    return {ok:true, toks:toks0, heard:alts[0], x:d, n:d, ans:"yes", fromYes:true};
+  }
+  return {ok:false, toks:toks0, heard:alts[0]};
+}
+function modelFor(tn, p){
+  if (tn.t === "yn") return fill(tn.model[p.ans]);
+  if (tn.t === "name") return tn.model.includes("{kid}") ? fill(tn.model.replace("{kid}", prefs.name ? "{kid}" : p.x)) : fill(tn.model, {x:p.x});
+  if (tn.t === "pick" || tn.t === "num") return fill(tn.model, {x:p.x, n:p.n});
+  return null;
+}
+function exampleFor(tn){
+  if (tn.t === "free") return tn.ex;
+  if (tn.t === "yn") return fill(tn.model.yes);
+  if (tn.t === "name") return tn.model.includes("{kid}") && !prefs.name ? "My name is Lan." : fill(tn.model, {x:"Lan"});
+  if (tn.t === "num"){ const n = tn.expect || (tn.def === "AGE" ? numToWords(prefs.age) : tn.def) || "five"; return fill(tn.model, {n}); }
+  if (tn.t === "pick"){
+    if (tn.expect) return fill(tn.model);
+    return fill(tn.model, {x:tn.def || LEX[tn.cat][0].split("|")[1]});
+  }
+  return "";
+}
+function reactionFor(tn, p){
+  let r = "";
+  if (seqAt(p.toks, ["and","you"]) >= 0 || seqAt(p.toks, ["about","you"]) >= 0) r += fill(tn.me || "Me? I like it too!") + " ";
+  if (tn.t === "yn") return r + fill(tn.r ? tn.r[p.ans] : "Okay!");
+  if (tn.expect !== undefined && tn.expect) return r + (p.right ? fill(tn.r && tn.r.right || "Yes! That's right!") : "Good guess!");
+  if (tn.t === "pick") return r + (tn.r ? fill(tn.r, {x:p.x}) : (p.entry.react || cap(p.x) + "! Nice!"));
+  if (tn.t === "num") return r + fill(tn.r || "{N}! Great!", {n:p.n});
+  if (tn.t === "name") return r + fill(tn.r, {x:p.x});
+  return r;
+}
+const NEED = {
+  past:{test:t => t.some(w => IRREG.has(w) || (/ed$/.test(w) && w.length > 3)), en:"When we talk about yesterday, we say played, went, ate."},
+  because:{test:t => t.includes("because") || t.includes("cause"), en:"Let's use because."},
+  future:{test:t => t.includes("will") || seqAt(t, ["going","to"]) >= 0, en:"For the weekend, we say: I will."}
+};
+
+/* =========================================================
+   When the child asks back: word meanings, "I don't understand", questions about the friend
+   ========================================================= */
+// Vietnamese meaning of every question, keyed by the question text in TOPICS
+const VI_Q = {
+  "Hi! I'm {me.name}. I'm from {me.country}. What's your name?":"Chào con! Mình là {me.name}. Con tên là gì?",
+  "How are you today?":"Hôm nay con thấy thế nào? Vui, khỏe hay mệt?",
+  "How old are you?":"Con mấy tuổi?",
+  "Do you like animals?":"Con có thích động vật không?",
+  "What animal do you like?":"Con thích con vật nào?",
+  "Do you have a pet?":"Nhà con có nuôi thú cưng, như chó hay mèo, không?",
+  "Which animal says meow?":"Con vật nào kêu meo meo?",
+  "Which animal is very big and has a long nose?":"Con vật nào rất to và có cái vòi dài?",
+  "Are you hungry now?":"Bây giờ con có đói không?",
+  "What food do you like?":"Con thích ăn món gì?",
+  "I love {me.food}. Do you like {me.food}?":"Con có thích món này không?",
+  "What do you drink in the morning?":"Buổi sáng con uống gì?",
+  "Which fruit is long and yellow?":"Quả nào dài và màu vàng?",
+  "What is your favorite color?":"Con thích màu gì nhất?",
+  "What color is the sky?":"Bầu trời màu gì?",
+  "What color is grass?":"Cỏ màu gì?",
+  "What color is a banana?":"Quả chuối màu gì?",
+  "Look at your clothes. What color is your shirt?":"Con nhìn quần áo của con xem. Áo của con màu gì?",
+  "Who do you live with?":"Con sống cùng với ai?",
+  "Do you have a sister?":"Con có chị hoặc em gái không?",
+  "Do you have a brother?":"Con có anh hoặc em trai không?",
+  "Who cooks dinner in your family?":"Trong nhà con, ai nấu bữa tối?",
+  "Do you love your family?":"Con có yêu gia đình mình không?",
+  "What is your favorite toy?":"Đồ chơi con thích nhất là gì?",
+  "I love to {me.hobby}. Do you like to draw?":"Con có thích vẽ tranh không?",
+  "What do you like to do after school?":"Đi học về con thích làm gì?",
+  "Can you dance?":"Con có biết nhảy múa không?",
+  "Can you ride a bike?":"Con có biết đi xe đạp không?",
+  "I am big and gray. I have a long nose. What am I?":"Mình to và màu xám, có cái vòi dài. Mình là con gì?",
+  "I am red and round. I am a fruit. What am I?":"Mình màu đỏ và tròn, là một loại quả. Mình là quả gì?",
+  "I say moo. I give you milk. What am I?":"Mình kêu ụm bò và cho con sữa. Mình là con gì?",
+  "I love bananas. I climb trees. What am I?":"Mình thích ăn chuối và hay leo cây. Mình là con gì?",
+  "I am cold and sweet. You eat me on hot days. What am I?":"Mình lạnh và ngọt, con hay ăn vào ngày nóng. Mình là gì?",
+  "Say it with me: one, two, three, four, five!":"Con đếm cùng mình: một, hai, ba, bốn, năm!",
+  "Now: six, seven, eight, nine, ten!":"Bây giờ đếm tiếp: sáu, bảy, tám, chín, mười!",
+  "How many fingers do you have on one hand?":"Một bàn tay của con có mấy ngón?",
+  "How many legs does a dog have?":"Con chó có mấy cái chân?",
+  "How many eyes do you have?":"Con có mấy con mắt?",
+  "Do you like school?":"Con có thích đi học không?",
+  "What grade are you in?":"Con học lớp mấy?",
+  "What subject do you like?":"Con thích môn học nào? Ví dụ toán, tiếng Anh, vẽ.",
+  "What is in your school bag?":"Trong cặp sách của con có gì?",
+  "Who is your best friend at school?":"Bạn thân của con ở trường là ai?",
+  "Is it hot or cold today?":"Hôm nay trời nóng hay lạnh?",
+  "Do you like rainy days?":"Con có thích những ngày trời mưa không?",
+  "{me.weather} Do you like hot days or cold days?":"Con thích ngày trời nóng hay ngày trời lạnh?",
+  "Where do you like to go on the weekend?":"Cuối tuần con thích đi chơi ở đâu?",
+  "What did you do yesterday?":"Hôm qua con đã làm gì?",
+  "Did you go to school yesterday?":"Hôm qua con có đi học không?",
+  "What did you eat for dinner last night?":"Tối hôm qua con ăn gì?",
+  "Who did you play with yesterday?":"Hôm qua con chơi với ai?",
+  "What do you want to be when you grow up?":"Lớn lên con muốn làm nghề gì?",
+  "Why do you want to be {last}?":"Vì sao con muốn làm nghề đó?",
+  "What will you do this weekend?":"Cuối tuần này con sẽ làm gì?",
+  "What makes you happy?":"Điều gì làm con thấy vui?"
+};
+// Words a child may ask about: "word|Vietnamese|simple English (optional)". Longer phrases first.
+const GLOSS_ROWS = [
+  "best friend|bạn thân|Your best friend is the friend you like the most.",
+  "school bag|cặp sách|You put your books in your school bag.",
+  "grow up|lớn lên|When you grow up, you become big like your mom and dad.",
+  "last night|tối hôm qua|", "after school|sau giờ học, lúc đi học về|", "ride a bike|đi xe đạp|",
+  "how many|bao nhiêu, mấy|", "how old|mấy tuổi|", "ice cream|kem|",
+  "pet|thú cưng|A pet is an animal that lives in your home, like a dog or a cat.",
+  "animal|con vật, động vật|Dogs, cats and birds are animals.", "animals|các con vật, động vật|Dogs, cats and birds are animals.",
+  "favorite|thích nhất|Your favorite is the one you like the most.",
+  "hungry|đói|Hungry means you want to eat.", "drink|uống|", "morning|buổi sáng|Morning is when you wake up.",
+  "fruit|trái cây, hoa quả|Apples and bananas are fruits.", "color|màu, màu sắc|Red, blue and yellow are colors.",
+  "sky|bầu trời|The sky is up above you.", "grass|cỏ|Grass is green. It grows on the ground.",
+  "clothes|quần áo|", "shirt|cái áo|", "live|sống, ở|", "sister|chị gái hoặc em gái|", "brother|anh trai hoặc em trai|",
+  "cook|nấu ăn|", "cooks|nấu ăn|", "dinner|bữa tối|Dinner is the food you eat in the evening.",
+  "family|gia đình|", "love|yêu|", "toy|đồ chơi|", "draw|vẽ|", "dance|nhảy múa|", "bike|xe đạp|",
+  "school|trường học|", "subject|môn học|Math and English are subjects.", "grade|lớp|You are in grade one.",
+  "friend|bạn|", "weather|thời tiết|Sunny, rainy and cold are kinds of weather.", "hot|nóng|", "cold|lạnh|",
+  "rainy|có mưa|", "weekend|cuối tuần|Saturday and Sunday are the weekend.", "yesterday|hôm qua|Yesterday is the day before today.",
+  "today|hôm nay|", "happy|vui|", "why|tại sao, vì sao|", "because|bởi vì|", "fingers|ngón tay|", "hand|bàn tay|",
+  "legs|cái chân|", "eyes|con mắt|", "nose|cái mũi, cái vòi|", "long|dài|", "big|to, lớn|", "round|tròn|", "sweet|ngọt|",
+  "gray|màu xám|", "milk|sữa|", "climb|leo, trèo|", "tree|cái cây|", "trees|cây|", "swim|bơi|", "snow|tuyết|",
+  "umbrella|cái ô|", "beach|bãi biển|", "park|công viên|", "which|cái nào, con nào|", "who|ai|", "where|ở đâu|",
+  "what|cái gì|", "name|tên|", "now|bây giờ|", "like|thích|", "want|muốn|", "meow|tiếng mèo kêu meo meo|", "moo|tiếng bò kêu|",
+  "count|đếm|", "eat|ăn|", "play|chơi|", "food|đồ ăn, món ăn|", "zoo|sở thú|", "doctor|bác sĩ|", "teacher|cô giáo, thầy giáo|"
+];
+const GLOSS = GLOSS_ROWS.map(r => { const [w, vi, en] = r.split("|"); return {w, toks:norm(w), vi, en}; }).sort((a, b) => b.toks.length - a.toks.length);
+const ME_QA = [
+  [["your","name"], "My name is {me.name}!"], [["how","old","are","you"], "I am {me.age} years old!"],
+  [["where","are","you","from"], "I am from {me.country}!"], [["where","do","you","live"], "I live in {me.country}!"],
+  [["your","favorite","color"], "My favorite color is {me.color}!"], [["your","favorite","food"], "I love {me.food}!"],
+  [["your","favorite","animal"], "I love {me.pet}s!"], [["you","have","a","pet"], "Yes! I have a {me.pet}. Its name is {me.petName}."],
+  [["how","are","you"], "I am great, thank you!"], [["what","do","you","like"], "I like to {me.hobby}!"]
+];
+const has = (t, seqs) => seqs.some(s => seqAt(t, s) >= 0);
+
+function detectHelp(t){
+  if (!t.length) return null;
+  const joined = t.join(" ");
+  // "what does pet mean", "what is a pet", "pet mean what", "meaning of pet"
+  let phrase = null, i;
+  if ((i = seqAt(t, ["what","does"])) >= 0){ const end = t.findIndex((w, k) => k > i && /^means?$/.test(w)); phrase = t.slice(i + 2, end > 0 ? end : undefined); }
+  else if ((i = seqAt(t, ["meaning","of"])) >= 0) phrase = t.slice(i + 2);
+  else if ((i = t.findIndex(w => /^means?$/.test(w))) > 0) phrase = t.slice(Math.max(0, i - 2), i);
+  else if (((i = seqAt(t, ["what","is"])) >= 0 || (i = seqAt(t, ["what","are"])) >= 0) && !t.includes("your") && !t.includes("you")) phrase = t.slice(i + 2);
+  if (phrase){
+    const words = phrase.filter(w => !["a","an","the","word","it","that","this","mean","means"].includes(w));
+    const g = GLOSS.find(g => seqAt(words, g.toks) >= 0) || GLOSS.find(g => words.length && g.toks.every(x => words.includes(x)));
+    return g ? {kind:"word", g} : (words.length ? {kind:"unknown", words} : {kind:"repeat"});
+  }
+  const qa = (t.includes("you") || t.includes("your")) ? ME_QA.find(([s]) => seqAt(t, s) >= 0) : null;
+  if (qa && !has(t, [["thank","you"],["see","you"]])) return {kind:"me", answer:qa[1]};
+  if (has(t, [["not","understand"],["did","not","get"],["do","not","get"],["say","again"],["say","it","again"],["one","more","time"],["repeat"],["pardon"],["slowly"],["what","did","you","say"],["can","you","say"]])
+      || ["what","huh","sorry","what what"].includes(joined)) return {kind:"repeat"};
+  if (has(t, [["do","not","know"],["no","idea"],["not","sure"]])) return {kind:"dontknow"};
+  if (has(t, [["have","a","question"],["can","i","ask"],["want","to","ask"]]) || joined === "question") return {kind:"ask"};
+  return null;
+}
+function currentQuestionEn(){ return S.mode === "repeat" && S.target ? S.target.text : fill(turn().q); }
+function addHelpCard(label, vi, example){
+  const c = document.createElement("div"); c.className = "card help";
+  const l = document.createElement("span"); l.className = "label"; l.textContent = label;
+  const v = document.createElement("span"); v.className = "vi-big"; v.textContent = vi;
+  c.append(l, v);
+  if (example){
+    const l2 = document.createElement("span"); l2.className = "label"; l2.textContent = "Con có thể nói";
+    const row = document.createElement("div"); row.className = "words";
+    const s = makeSentence(example);
+    row.append(wordsEl(s), speakBtn(example, prefs.rate * 0.85, "mini"));
+    c.append(l2, row);
+  }
+  chat.appendChild(c); scrollDown();
+}
+function explainQuestion(prefix){
+  if (S.ended) return;
+  stopListening(); hush();
+  const lead = (prefix ? prefix + " " : "") + "No problem! Let me say it slowly.";
+  if (S.mode === "repeat" && S.target){
+    addHelpCard("Nghĩa là", "Con nghe rồi nói theo câu này nhé.", S.target.text);
+    return friendSays(lead + " " + S.target.text + " Now you say it!",
+      [lead, {text:S.target.text, rate:0.65}, {text:"Con nghe rồi nói theo câu này nhé.", lang:"vi"}, "Now you say it!"]);
+  }
+  const tn = turn(), en = fill(tn.q), vi = VI_Q[tn.q] ? fill(VI_Q[tn.q]) : "", ex = tn.t === "free" ? tn.ex : exampleFor(tn);
+  addHelpCard("Nghĩa là", vi || en, ex);
+  friendSays(lead + " " + en + (ex ? " You can say: " + ex : ""),
+    [lead, {text:en, rate:0.65}, ...(vi ? [{text:vi, lang:"vi"}] : []), ...(ex ? ["You can say:", {text:ex, rate:0.8}] : [])]);
+}
+function handleHelp(h){
+  const again = currentQuestionEn();
+  const backTo = S.mode === "repeat" ? "Now say: " + again : "So, " + again.replace(/^(\w)(\w*)/, (m, a, b) => /^I\b/.test(m) ? m : a.toLowerCase() + b);
+  if (h.kind === "repeat") return explainQuestion("");
+  if (h.kind === "word"){
+    const w = h.g.w;
+    addHelpCard("Nghĩa của từ", w + " = " + h.g.vi, null);
+    return friendSays(cap(w) + "? " + (h.g.en ? h.g.en + " " : "") + "In Vietnamese: " + h.g.vi + ". " + backTo,
+      [cap(w) + "?", ...(h.g.en ? [h.g.en] : []), {text:w + " nghĩa là " + h.g.vi, lang:"vi"}, {text:backTo, rate:prefs.rate * 0.9}]);
+  }
+  if (h.kind === "unknown") return explainQuestion("Good question!");
+  if (h.kind === "me") return friendSays(fill(h.answer) + " " + backTo);
+  if (h.kind === "dontknow"){
+    const tn = turn();
+    const ex = S.mode === "repeat" && S.target ? S.target.text : (tn.t === "free" ? tn.ex : exampleFor(tn));
+    if (S.mode === "repeat") return explainQuestion("That's okay!");
+    return startRepeat(ex, "That's okay! You can say: " + ex + " Try it!", "", true);
+  }
+  if (h.kind === "ask"){ S.asking = true; return friendSays("Sure! What is your question?"); }
+}
+
+function handleAnswer(alts){
+  if (S.ended) return;
+  const toks0 = norm(alts[0]);
+  if (toks0.some(w => ["bye","goodbye"].includes(w)) || seqAt(toks0, ["see","you"]) >= 0){ addKid(alts[0]); return closing(""); }
+  const help = detectHelp(toks0);
+  // "I'm fine, how are you?" or "I don't know how to swim" still answer the question: let those through
+  const answers = S.mode !== "repeat" && parse(turn(), alts).ok;
+  if (help && !(answers && (help.kind === "me" || help.kind === "dontknow"))){
+    S.asking = false;
+    addKid(alts[0]);
+    return handleHelp(help);
+  }
+  if (S.asking){
+    S.asking = false;
+    if (!answers && S.mode !== "repeat"){
+      addKid(alts[0]);
+      return friendSays("Good question! Hmm, I'm not sure. Let's keep talking! " + currentQuestionEn());
+    }
+  }
+  if (S.mode === "repeat") return handleRepeat(alts);
+  const tn = turn(), p = parse(tn, alts);
+  addKid(p.heard || alts[0]);
+  if (!p.ok){
+    S.fails++;
+    if (S.fails === 1) return friendSays(pick(SORRY) + " " + fill(tn.hint || tn.q));
+    const ex = exampleFor(tn);
+    return startRepeat(ex, "That's okay! You can say: " + ex + " Try it!", "", true);
+  }
+  if (p.x && tn.t === "pick") S.lastX = p.x;
+  if (p.pron){
+    addCard("sound", "Từ cần luyện phát âm", makeSentence(p.pron.word), null, "Máy nghe thành “" + p.pron.heard + "”. " + tipFor(p.pron.word));
+  }
+  const model = modelFor(tn, p);
+  const react = reactionFor(tn, p);
+  const g = tn.t === "name" ? null : grammarFix(p.toks);
+  if (g){
+    const fixed = tokensToSentence(g.tokens);
+    addCard("fix", "Nói thế này hay hơn", makeSentence(fixed), null, g.vi);
+    return startRepeat(fixed, pick(["Good try!","Nice!","Ooh!"]) + " We say: " + fixed + " Can you say it?", (tn.t === "free" ? "Wow, " + swapPronouns(norm(fixed)) + "! " : "") + react, true);
+  }
+  if (tn.t === "free"){
+    const need = tn.need && NEED[tn.need];
+    const echo = p.toks.length <= 12 ? "Wow, " + swapPronouns(p.toks) + "! " : "Wow! ";
+    if (need && !need.test(p.toks)) return startRepeat(tn.ex, "Nice! " + need.en + " Like this: " + tn.ex + " Can you say it?", "", true);
+    if (p.toks.length < 3) return startRepeat(tn.ex, "Good! Let's say a long sentence. Like this: " + tn.ex + " Can you say it?", "", true);
+    S.repeats = 0;
+    return advance(echo + pick(["That sounds fun!","Cool!","I love that!","That's great!"]));
+  }
+  if (tn.expect && !p.right) return startRepeat(model, "Good guess! But the answer is: " + model + " Can you say it?", "", true);
+  if (p.pron) return startRepeat(model, react + " Listen: " + p.pron.word + ". Can you say: " + model + "?", "", true);
+  const short = p.toks.length < 3 || p.fromYes;
+  const wantFull = model && short && S.repeats < 2 && (level() >= 2 || Math.random() < 0.5);
+  if (wantFull) return startRepeat(model, pick(["Yes!","Good!","Great!"]) + " Can you say the whole sentence? " + model, react, false);
+  S.repeats = 0;
+  advance((Math.random() < 0.35 ? pick(PRAISE) + " " : "") + react);
+}
+function handleRepeat(alts){
+  const chk = checkSentence(S.target, alts);
+  addKid(chk.heard);
+  S.tries++;
+  if (passes(chk)){
+    addCard("check", "Con đã nói", S.target, chk.okItems);
+    const praise = pick(PRAISE);
+    if (S.isDrill) return advance(praise);
+    return advance(praise + (S.after ? " " + S.after : ""));
+  }
+  addCard("check", "Từ màu đỏ con nói chưa rõ, bấm vào để nghe", S.target, chk.okItems);
+  const bad = S.target.items.filter((it, i) => !chk.okItems[i]).map(it => it.disp.replace(/[^\p{L}\p{N}' ]/gu, ""));
+  if (S.tries < 2){
+    const line = "Almost! Listen: " + bad.slice(0, 2).join(", ") + ". " + S.target.text + " Try again!";
+    const speech = ["Almost! Listen."].concat(bad.slice(0, 2).map(w => ({text:w, rate:0.6})), [{text:S.target.text, rate:prefs.rate * 0.9}, "Try again!"]);
+    bad.slice(0, 1).forEach(w => S.learned.push(w));
+    return friendSays(line, speech);
+  }
+  advance("Good try! You are doing great." + (S.after ? " " + S.after : ""));
+}
+function closing(prefix){
+  S.ended = true;
+  stopListening();
+  const line = (prefix ? prefix + " " : "") + "I had so much fun talking with you, " + kidName() + "! You did a great job today. See you next time! Bye bye!";
+  friendSays(line, null, showSummary);
+}
+function showSummary(){
+  const box = document.createElement("div"); box.className = "summary";
+  const h = document.createElement("h2"); h.textContent = "Great talk, " + kidName() + "!";
+  box.appendChild(h);
+  const uniq = [...new Set(S.learned)];
+  if (uniq.length){
+    const l = document.createElement("span"); l.className = "label"; l.textContent = "Hôm nay bé đã luyện";
+    const ul = document.createElement("ul");
+    uniq.forEach(t => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+    box.append(l, ul);
+  } else {
+    const p = document.createElement("p"); p.style.margin = "0"; p.textContent = "Hôm nay bé nói rất tốt, không cần sửa câu nào!";
+    box.appendChild(p);
+  }
+  const again = document.createElement("button"); again.type = "button"; again.className = "ghost"; again.textContent = "Nói chuyện tiếp";
+  again.onclick = () => {
+    box.remove(); S.ended = false; S.learned = [];
+    const next = planTopics(false);
+    if (!next.length){ S.used.clear(); next.push(...planTopics(false)); }
+    S.topics = next; S.ti = 0; S.qi = 0;
+    askCurrent("Yay! Let's talk more! " + fill(S.topics[0].intro));
+  };
+  box.appendChild(again);
+  chat.appendChild(box); scrollDown();
+}
+function jumpTo(topicId){
+  const tp = TOPICS.find(t => t.id === topicId);
+  if (!tp) return;
+  stopListening(); hush(); S.ended = false;
+  S.topics.splice(S.ti + 1, 0, tp);
+  S.ti++; S.qi = 0;
+  askCurrent(fill(tp.intro) || "Okay!");
+}
+
+/* ---------- Mic ---------- */
+let noSpeechCount = 0, listenToken = 0;
+async function startListening(auto){
+  if (!canListen() || micMode === "listening") return;
+  hush();
+  setMic("listening");
+  let alts = [];
+  lastUnclear = false;
+  const my = ++listenToken;
+  try{ alts = await (HELPER ? helperListen() : engine() === "local" ? localListen() : listen()); }
+  catch(err){
+    if (my !== listenToken) return;
+    setMic("idle");
+    // The browser's recognizer has no service behind it (Huawei, Cốc Cốc…): switch to Whisper on the device
+    if (!HELPER && !srBroken && engine() === "browser" && ["network", "service-not-allowed", "language-not-supported", "start-failed"].includes(err)){
+      srBroken = true;
+      if (engine() === "local"){ addSys("Bộ nghe của trình duyệt không chạy, app chuyển sang bộ nghe ngay trên máy."); return startListening(auto); }
+    }
+    if (typeof err !== "string") err = (err && err.message) || "local";
+    // A mic that starts by itself can be refused until the page gets a tap: just ask for the tap.
+    if (auto && (err === "not-allowed" || err === "service-not-allowed" || err === "start-failed")){
+      $("#micState").textContent = "Bấm vào micro để nói nhé";
+      return;
+    }
+    const msg = {
+      "not-allowed":"Trình duyệt chưa cho dùng micro. Ba mẹ bấm biểu tượng ổ khoá hoặc micro trên thanh địa chỉ, chọn Cho phép, rồi bấm nút micro.",
+      "service-not-allowed":"Trình duyệt chưa cho dùng micro. Ba mẹ bấm biểu tượng ổ khoá hoặc micro trên thanh địa chỉ, chọn Cho phép, rồi bấm nút micro.",
+      "audio-capture":"Không tìm thấy micro. Ba mẹ kiểm tra lại micro hoặc tai nghe nhé.",
+      "network":"Không kết nối được dịch vụ nhận giọng nói. Ba mẹ kiểm tra Internet nhé."
+    }[err] || "Micro gặp lỗi (" + err + "). Bấm nút micro để thử lại.";
+    addSys(msg); return;
+  }
+  // The helper cannot be stopped mid-recording: drop a result the child moved on from (help, topic, settings)
+  if (my !== listenToken) return;
+  setMic("idle");
+  if (!alts.length && !HELPER && engine() === "browser" && recTrace.includes("soundstart") && ++srSilent >= 2 && !srBroken){
+    // It hears sound but never returns words: the recognizer service is missing
+    srBroken = true;
+    if (engine() === "local") addSys("Bộ nghe của trình duyệt không nhận ra chữ, app chuyển sang bộ nghe ngay trên máy.");
+  }
+  if (alts.length) srSilent = 0;
+  if (!alts.length){
+    noSpeechCount++;
+    if (lastUnclear && noSpeechCount <= 2){
+      addSys("Máy nghe chưa rõ. Bé ngồi gần máy tính (khoảng một gang tay đến nửa mét) và nói to hơn nhé.");
+      return friendSays("Sorry, I couldn't hear you well. Can you say it a little louder? " + (S.mode === "repeat" ? "Say: " + S.target.text : fill(turn().q)));
+    }
+    if (auto && noSpeechCount === 1) return friendSays("Are you there, " + kidName() + "? " + (S.mode === "repeat" ? "Say: " + S.target.text : fill(turn().q)));
+    $("#micState").textContent = HELPER ? "Bấm vào micro để nói nhé. Bé ngồi gần máy và nói to, rõ."
+      : recTrace.includes("soundstart")
+      ? "Micro có nghe tiếng nhưng chưa hiểu bé nói gì. Bấm micro, nói to và rõ hơn nhé."
+      : "Micro chưa thu được tiếng nào. Bấm micro để nói, hoặc bấm “Kiểm tra micro”.";
+    return;
+  }
+  noSpeechCount = 0;
+  handleAnswer(alts);
+}
+function stopListening(){ listenToken++; if (rec){ try{ rec.abort(); }catch(e){} rec = null; } if (micMode === "listening") setMic("idle"); }
+$("#btnHelp").onclick = () => { if (!$("#dock").hidden) explainQuestion(""); };
+$("#btnAgain").onclick = () => {
+  if (S.ended) return;
+  stopListening();
+  const q = currentQuestionEn();
+  talk([{text:q, rate:prefs.rate * 0.85}]).then(ok => { if (!ok) return; setMic("idle"); if (prefs.auto && canListen()) setTimeout(() => { if (micMode === "idle") startListening(true); }, 600); });
+};
+$("#btnMic").onclick = () => {
+  if (micMode === "listening"){ if (!HELPER){ try{ rec && rec.stop(); }catch(e){} } return; }
+  noSpeechCount = 0;
+  startListening(false);
+};
+
+/* =========================================================
+   Start screen & wiring
+   ========================================================= */
+function renderFriends(){
+  const box = $("#friends"); box.innerHTML = "";
+  Object.entries(FRIENDS).forEach(([id, f]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "friend"; b.setAttribute("aria-pressed", String(prefs.friend === id));
+    b.innerHTML = `<svg class="avatar big" style="--hair:${f.hair};--bow:${f.bow}" aria-hidden="true"><use href="#kid"/></svg><span class="fn">${f.name}</span><span class="fd">${f.desc}</span>`;
+    b.onclick = () => {
+      prefs.friend = id; F = FRIENDS[id]; renderFriends(); loadVoices();
+      talk(["Hi! I'm " + f.name + "!"]).then(() => setMic("idle"));
+    };
+    box.appendChild(b);
+  });
+}
+const ageSel = $("#fAge");
+for (let a = 4; a <= 12; a++) ageSel.add(new Option(a + " tuổi", a));
+$("#fName").value = prefs.name; ageSel.value = prefs.age; $("#fLevel").value = prefs.level;
+$("#fRate").value = String(prefs.rate); $("#fAuto").checked = prefs.auto;
+renderFriends();
+// Only Edge and Google Chrome ship a working speech recognizer; other Chromium browsers (Cốc Cốc, Opera, Brave…) show the mic prompt but never return words.
+const UA = navigator.userAgent;
+const isEdge = /Edg\//.test(UA);
+const isChrome = /Chrome\//.test(UA) && !/coc_coc|CocCoc|OPR\/|YaBrowser|Vivaldi|Edg\//i.test(UA) && !navigator.brave;
+const browserName = /coc_coc|CocCoc/i.test(UA) ? "Cốc Cốc" : /OPR\//.test(UA) ? "Opera" : navigator.brave ? "Brave" : /Firefox\//.test(UA) ? "Firefox" : "trình duyệt này";
+if (!engine()){
+  $("#warn").hidden = false;
+  $("#warn").innerHTML = location.protocol === "file:" || !window.isSecureContext
+    ? "<b>Trang đang mở trực tiếp từ file, nên chưa nghe được giọng của bé.</b> Trên laptop, ba mẹ bấm đúp “Mo Anna va Luna.bat”. Trên máy tính bảng, mở địa chỉ https của app."
+    : "<b>Trình duyệt " + browserName + " không cho trang dùng micro.</b> Ba mẹ thử mở bằng trình duyệt khác.";
+} else if (engine() === "local"){
+  $("#warn").hidden = false; $("#warn").style.borderColor = "var(--line)"; $("#warn").style.background = "var(--card)";
+  $("#warn").innerHTML = "Máy này nghe bằng bộ nghe chạy ngay trên máy. Lần đầu app tải về khoảng 40 MB (nên dùng Wi-Fi), những lần sau mở nhanh hơn. Khi máy hỏi quyền dùng micro, ba mẹ bấm <b>Cho phép</b>.";
+}
+if (hasTTS && !voices.length) setTimeout(() => {
+  loadVoices();
+  if (!voices.some(v => /^en/i.test(v.lang))){
+    $("#warn").hidden = false;
+    $("#warn").innerHTML += "<br><b>Máy chưa có giọng đọc tiếng Anh.</b> Ba mẹ vào Cài đặt → Trợ năng → Chuyển văn bản thành giọng nói, cài thêm giọng tiếng Anh. Trong lúc chờ, câu của bạn ấy vẫn hiện thành chữ trên màn hình.";
+  }
+}, 1500);
+if (hasTTS){ speechSynthesis.onvoiceschanged = loadVoices; loadVoices(); }
+
+let started = false;
+$("#btnStart").onclick = () => {
+  prefs.name = $("#fName").value.trim(); prefs.age = Number(ageSel.value); prefs.level = $("#fLevel").value;
+  prefs.rate = Number($("#fRate").value); prefs.auto = $("#fAuto").checked;
+  store.set("prefs", prefs);
+  wildSet = new Set(norm(prefs.name));
+  F = FRIENDS[prefs.friend];
+  $("#friendName").textContent = F.name;
+  $("#headAvatar").setAttribute("style", `--hair:${F.hair};--bow:${F.bow}`);
+  $("#app").classList.remove("on-start");
+  $("#start").hidden = true; ["#head", "#chat", "#dock"].forEach(s => { $(s).hidden = false; });
+  if (!canListen()) $("#typeForm").hidden = false;
+  if (engine() === "local") loadAsr().catch(() => addSys("Chưa tải được bộ nghe. Ba mẹ kiểm tra Wi-Fi rồi tải lại trang nhé."));
+  setMic("idle");
+  if (!started){
+    started = true; S.topics = planTopics(true); S.ti = 0; S.qi = 0;
+    askCurrent("");
+  } else if (S.ended){
+    S.ended = false; S.topics = planTopics(false); S.ti = 0; S.qi = 0;
+    if (!S.topics.length){ S.used.clear(); S.topics = planTopics(false); }
+    askCurrent("Hi again! " + fill(S.topics[0].intro));
+  } else {
+    askCurrent("Okay! Let's keep talking.");
+  }
+};
+$("#btnSettings").onclick = () => {
+  stopListening(); hush(); setMic("idle");
+  $("#btnStart").textContent = "Quay lại nói chuyện";
+  $("#app").classList.add("on-start");
+  $("#start").hidden = false; ["#head", "#chat", "#dock"].forEach(s => { $(s).hidden = true; });
+};
+$("#btnBye").onclick = () => { if (S.ended) return; stopListening(); addKid("Bye bye!"); closing(""); };
+$("#btnType").onclick = () => { const f = $("#typeForm"); f.hidden = !f.hidden; if (!f.hidden) $("#typeInput").focus(); };
+$("#typeForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("#typeInput").value.trim(); if (!v) return;
+  $("#typeInput").value = ""; stopListening(); hush(); setMic("idle");
+  handleAnswer([v]);
+});
+const topicsBar = $("#topics");
+TOPICS.filter(t => !t.fixed).forEach(t => {
+  const b = document.createElement("button"); b.type = "button"; b.className = "topic"; b.textContent = t.vi;
+  b.onclick = () => jumpTo(t.id);
+  topicsBar.appendChild(b);
+});
+
+/* =========================================================
+   Mic check: is sound reaching the page, and does the recognizer answer?
+   ========================================================= */
+let dStream = null, dRaf = 0, dPeak = 0;
+const dSet = (id, html) => { $(id).innerHTML = html; };
+function openDiag(){
+  stopListening(); hush(); setMic("idle");
+  dSet("#dBrowser", (isEdge ? '<span class="good">Microsoft Edge</span>' : isChrome ? '<span class="good">Google Chrome</span>' : '<span class="bad">' + browserName + " (không nghe được giọng nói)</span>")
+    + " · " + (SR ? "có bộ nhận giọng nói" : '<span class="bad">không có bộ nhận giọng nói</span>')
+    + " · " + (navigator.onLine ? "có Internet" : '<span class="bad">không có Internet</span>'));
+  dSet("#dVerdict", ""); $("#dHeard").textContent = "";
+  $("#diag").showModal();
+}
+function closeDiag(){
+  cancelAnimationFrame(dRaf);
+  if (dStream){ dStream.getTracks().forEach(t => t.stop()); dStream = null; }
+  try{ rec && rec.abort(); }catch(e){}
+  $("#diag").close();
+}
+$("#btnDiag").onclick = openDiag;
+$("#btnDiag2").onclick = openDiag;
+$("#dClose").onclick = closeDiag;
+$("#diag").addEventListener("cancel", closeDiag);
+$("#dMicBtn").onclick = async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ dSet("#dMic", '<span class="bad">Trình duyệt không cho dùng micro ở trang này.</span>'); return; }
+  try{
+    dStream = await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){
+    dSet("#dMic", '<span class="bad">Không mở được micro (' + e.name + ").</span> " + (e.name === "NotAllowedError" ? "Bấm biểu tượng ổ khoá trên thanh địa chỉ → Micro → Cho phép." : "Kiểm tra micro trong Cài đặt Windows → Âm thanh."));
+    return;
+  }
+  const label = dStream.getAudioTracks()[0].label || "micro mặc định";
+  dSet("#dMic", "đang dùng <b>" + label + "</b>. Nói thử vài câu…");
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const an = ctx.createAnalyser(); an.fftSize = 512;
+  ctx.createMediaStreamSource(dStream).connect(an);
+  const buf = new Uint8Array(an.fftSize); dPeak = 0;
+  const t0 = performance.now();
+  (function tick(){
+    an.getByteTimeDomainData(buf);
+    let sum = 0; for (const v of buf){ const x = (v - 128) / 128; sum += x * x; }
+    const lvl = Math.min(1, Math.sqrt(sum / buf.length) * 6);
+    dPeak = Math.max(dPeak, lvl);
+    $("#dLevel").style.width = Math.round(lvl * 100) + "%";
+    if (performance.now() - t0 < 6000){ dRaf = requestAnimationFrame(tick); return; }
+    dStream.getTracks().forEach(t => t.stop()); dStream = null; ctx.close();
+    $("#dLevel").style.width = "0";
+    dSet("#dMic", dPeak > 0.15
+      ? '<span class="good">Tốt, micro thu được tiếng</span> (' + label + ")."
+      : '<span class="bad">Micro gần như không thu được tiếng</span> (' + label + "). Micro có thể đang bị tắt tiếng: thử phím tắt micro trên bàn phím, hoặc vào Cài đặt Windows → Âm thanh → Đầu vào, tăng âm lượng micro.");
+  })();
+};
+$("#dRecBtn").onclick = () => {
+  if (!SR){ dSet("#dRec", '<span class="bad">Trình duyệt này không có bộ nhận giọng nói.</span> Hãy mở bằng Microsoft Edge.'); return; }
+  const r = new SR(); rec = r;
+  r.lang = "en-US"; r.continuous = false; r.interimResults = true;
+  const seen = []; let text = "", err = "";
+  const show = () => dSet("#dRec", "đang nghe… (" + (seen.join(" → ") || "đang khởi động") + ")");
+  ["start","audiostart","soundstart","speechstart","speechend","audioend"].forEach(ev => r.addEventListener(ev, () => { seen.push(ev); show(); }));
+  r.onresult = e => { text = Array.from(e.results).map(x => x[0].transcript).join(" "); $("#dHeard").textContent = "“" + text + "”"; };
+  r.onerror = e => { err = e.error; };
+  r.onend = () => {
+    rec = null;
+    let v;
+    if (text) v = '<span class="good">Mọi thứ hoạt động!</span> Máy nghe được: “' + text + "”. Bé có thể nói chuyện với " + F.name + " rồi.";
+    else if (err === "not-allowed" || err === "service-not-allowed") v = '<span class="bad">Trình duyệt chặn micro.</span> Bấm biểu tượng ổ khoá trên thanh địa chỉ → Micro → Cho phép, rồi thử lại.';
+    else if (err === "network") v = '<span class="bad">Không kết nối được dịch vụ nhận giọng nói.</span> Kiểm tra Internet, hoặc tắt VPN, phần mềm chặn quảng cáo hay tường lửa rồi thử lại.';
+    else if (err === "audio-capture") v = '<span class="bad">Trình duyệt không lấy được tiếng từ micro.</span> Kiểm tra micro trong Cài đặt Windows → Âm thanh → Đầu vào.';
+    else if (err === "language-not-supported") v = '<span class="bad">Bộ nhận giọng nói chưa hỗ trợ tiếng Anh trên máy này.</span>';
+    else if (!seen.includes("audiostart")) v = '<span class="bad">Bộ nhận giọng nói không bật được micro</span>' + (err ? " (lỗi: " + err + ")" : "") + ".";
+    else if (!seen.includes("soundstart")) v = '<span class="bad">Micro bật nhưng không nghe thấy tiếng nào.</span> Nói to hơn, gần máy hơn, hoặc kiểm tra micro có bị tắt tiếng không.';
+    else v = '<span class="bad">Có nghe thấy tiếng nhưng không nhận ra chữ</span>' + (err ? " (lỗi: " + err + ")" : "") + ". Thử nói chậm và to: “Hello, my name is …”.";
+    dSet("#dRec", seen.join(" → ") + (err ? " · lỗi: " + err : ""));
+    dSet("#dVerdict", v);
+  };
+  try{ r.start(); show(); }catch(e){ dSet("#dRec", '<span class="bad">Không khởi động được (' + e.message + ").</span>"); }
+};
+</script>
+</body>
+</html>
