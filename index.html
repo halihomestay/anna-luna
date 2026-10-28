@@ -224,6 +224,13 @@ dialog::backdrop{background:rgba(20,16,50,.45)}
         </select>
       </label>
       <label class="check" style="align-self:end"><input type="checkbox" id="fAuto"> Micro tự bật</label>
+      <label class="full">Cách nghe giọng bé
+        <select id="fAsr">
+          <option value="auto">Tự chọn (nên dùng)</option>
+          <option value="local">Nghe ngay trên máy (máy Huawei, không có Google)</option>
+          <option value="browser">Bộ nghe của trình duyệt (Chrome, Edge có Google/Microsoft)</option>
+        </select>
+      </label>
     </div>
     <div class="warn" id="warn" hidden></div>
     <button class="primary" id="btnStart" type="button">Bắt đầu nói chuyện</button>
@@ -769,9 +776,27 @@ let srBroken = false, srSilent = 0, asr = null, asrLoading = null, micStream = n
 function engine(){
   if (HELPER) return "helper";
   const localOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && typeof WebAssembly === "object" && window.isSecureContext;
-  const huawei = /HuaweiBrowser|HarmonyOS|HMSCore/i.test(navigator.userAgent);
+  // Parent's choice in the start screen wins
+  if (prefs.asr === "local" && localOk) return "local";
+  if (prefs.asr === "browser" && SR) return "browser";
+  // Huawei/Honor tablets have no Google speech service behind the browser recognizer
+  const huawei = /HuaweiBrowser|HarmonyOS|HMSCore|HUAWEI|HONOR|\b(AGS|BAH|BTV|DBY|KOB|MRX|SCMR|AGR|BZT|DRA|JDN)\d?-/i.test(navigator.userAgent);
   if (SR && (isEdge || isChrome) && !huawei && !srBroken) return "browser";
   return localOk ? "local" : (SR ? "browser" : "");
+}
+// Phones and tablets only let a page record after a tap: open the mic and audio engine on the Start tap,
+// so the automatic listening after each question works.
+async function unlockAudio(){
+  if (engine() !== "local") return;
+  try{
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+    if (!micStream) micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+  }catch(e){
+    addSys(e && e.name === "NotAllowedError"
+      ? "Máy chưa cho app dùng micro. Ba mẹ bấm biểu tượng ổ khoá cạnh địa chỉ trang → Quyền → Micro → Cho phép, rồi tải lại trang."
+      : "Chưa mở được micro (" + (e && e.name || e) + "). Ba mẹ tải lại trang và thử lại nhé.");
+  }
 }
 const canListen = () => !!engine();
 function loadAsr(){
@@ -798,18 +823,25 @@ function recordLocal(maxWait, pause, maxLen){
     try{
       if (!micStream) micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === "suspended") await audioCtx.resume();
+      if (audioCtx.state === "suspended") await Promise.race([audioCtx.resume(), new Promise(r => setTimeout(r, 800))]);
     }catch(e){ return reject(e && e.name === "NotAllowedError" ? "not-allowed" : "audio-capture"); }
+    // Still frozen: the browser wants a tap first. Ask for one instead of waiting forever.
+    if (audioCtx.state !== "running") return reject("needs-tap");
     const src = audioCtx.createMediaStreamSource(micStream);
     const proc = audioCtx.createScriptProcessor(2048, 1, 1);
     const rate = audioCtx.sampleRate, t0 = performance.now();
-    let pre = [], chunks = [], levels = [], noise = 0, started = false, loud = 0, last = t0, done = false;
+    let pre = [], chunks = [], levels = [], noise = 0, started = false, loud = 0, last = t0, done = false, ticks = 0;
     const finish = out => {
       if (done) return; done = true;
+      clearTimeout(safety); clearTimeout(alive);
       proc.onaudioprocess = null; try{ src.disconnect(); proc.disconnect(); }catch(e){}
       resolve(out);
     };
+    // Safety nets: sound must start flowing within 2 s, and no listen lasts forever
+    const alive = setTimeout(() => { if (!ticks && !done){ done = true; clearTimeout(safety); try{ src.disconnect(); proc.disconnect(); }catch(e){} reject("needs-tap"); } }, 2000);
+    const safety = setTimeout(() => finish(chunks.length ? {chunks, rate} : null), (maxWait + maxLen + 2) * 1000);
     proc.onaudioprocess = e => {
+      ticks++;
       const x = new Float32Array(e.inputBuffer.getChannelData(0));
       let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i];
       const rms = Math.sqrt(s / x.length), now = performance.now();
@@ -897,6 +929,9 @@ function listen(){
     ["audiostart","soundstart","speechstart","speechend","nomatch"].forEach(ev => r.addEventListener(ev, () => recTrace.push(ev)));
     // Safety net only: stop if nothing has ended after a long while
     const hard = setTimeout(() => { try{ r.stop(); }catch(e){} }, 15000);
+    // A recognizer with no service behind it often never even opens the mic: give it 4 s
+    const opened = setTimeout(() => { if (!recTrace.length){ err = "start-failed"; try{ r.abort(); }catch(e){} } }, 4000);
+    r.addEventListener("end", () => clearTimeout(opened));
     r.onresult = e => {
       let interim = ""; finals = [];
       for (let i = 0; i < e.results.length; i++){
@@ -907,12 +942,13 @@ function listen(){
       latest = (finals.map(f => f[0]).join(" ") + interim).trim() || latest;
       $("#live").textContent = latest;
     };
-    r.onerror = e => { err = e.error; };
+    r.onerror = e => { if (err !== "start-failed") err = e.error; };
     r.onend = () => {
       clearTimeout(hard); rec = null;
       // Edge sometimes ends without marking the last words as final: keep what was shown on screen.
       if (!finals.length && latest) return resolve([latest]);
       if (!finals.length){ return (err && err !== "no-speech" && err !== "aborted") ? reject(err) : resolve([]); }
+      // (err "start-failed" from the 4 s check above rejects here and switches to the on-device listener)
       const maxA = Math.max(...finals.map(f => f.length)), alts = [];
       for (let a = 0; a < maxA; a++) alts.push(finals.map(f => f[Math.min(a, f.length - 1)]).join(" ").trim());
       resolve([...new Set(alts)].filter(Boolean));
@@ -930,7 +966,7 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem("eg:" + k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem("eg:" + k, JSON.stringify(v)); }catch(e){} }
 };
-const prefs = Object.assign({friend:"emma", name:"", age:6, level:"1", rate:0.88, auto:true}, store.get("prefs", {}));
+const prefs = Object.assign({friend:"emma", name:"", age:6, level:"1", rate:0.88, auto:true, asr:"auto"}, store.get("prefs", {}));
 let F = FRIENDS[prefs.friend];
 
 function scrollDown(){ chat.scrollTop = chat.scrollHeight; }
@@ -1446,8 +1482,8 @@ async function startListening(auto){
     }
     if (typeof err !== "string") err = (err && err.message) || "local";
     // A mic that starts by itself can be refused until the page gets a tap: just ask for the tap.
-    if (auto && (err === "not-allowed" || err === "service-not-allowed" || err === "start-failed")){
-      $("#micState").textContent = "Bấm vào micro để nói nhé";
+    if (err === "needs-tap" || (auto && (err === "not-allowed" || err === "service-not-allowed" || err === "start-failed"))){
+      $("#micState").textContent = "Bấm vào nút micro để nói nhé";
       return;
     }
     const msg = {
@@ -1516,7 +1552,7 @@ function renderFriends(){
 const ageSel = $("#fAge");
 for (let a = 4; a <= 12; a++) ageSel.add(new Option(a + " tuổi", a));
 $("#fName").value = prefs.name; ageSel.value = prefs.age; $("#fLevel").value = prefs.level;
-$("#fRate").value = String(prefs.rate); $("#fAuto").checked = prefs.auto;
+$("#fRate").value = String(prefs.rate); $("#fAuto").checked = prefs.auto; $("#fAsr").value = prefs.asr;
 renderFriends();
 // Only Edge and Google Chrome ship a working speech recognizer; other Chromium browsers (Cốc Cốc, Opera, Brave…) show the mic prompt but never return words.
 const UA = navigator.userAgent;
@@ -1532,6 +1568,7 @@ if (!engine()){
   $("#warn").hidden = false; $("#warn").style.borderColor = "var(--line)"; $("#warn").style.background = "var(--card)";
   $("#warn").innerHTML = "Máy này nghe bằng bộ nghe chạy ngay trên máy. Lần đầu app tải về khoảng 40 MB (nên dùng Wi-Fi), những lần sau mở nhanh hơn. Khi máy hỏi quyền dùng micro, ba mẹ bấm <b>Cho phép</b>.";
 }
+$("#fAsr").addEventListener("change", () => { prefs.asr = $("#fAsr").value; srBroken = false; });
 if (hasTTS && !voices.length) setTimeout(() => {
   loadVoices();
   if (!voices.some(v => /^en/i.test(v.lang))){
@@ -1542,10 +1579,11 @@ if (hasTTS && !voices.length) setTimeout(() => {
 if (hasTTS){ speechSynthesis.onvoiceschanged = loadVoices; loadVoices(); }
 
 let started = false;
-$("#btnStart").onclick = () => {
+$("#btnStart").onclick = async () => {
   prefs.name = $("#fName").value.trim(); prefs.age = Number(ageSel.value); prefs.level = $("#fLevel").value;
-  prefs.rate = Number($("#fRate").value); prefs.auto = $("#fAuto").checked;
+  prefs.rate = Number($("#fRate").value); prefs.auto = $("#fAuto").checked; prefs.asr = $("#fAsr").value;
   store.set("prefs", prefs);
+  await unlockAudio();  // must run on this tap: phones and tablets block recording that starts later by itself
   wildSet = new Set(norm(prefs.name));
   F = FRIENDS[prefs.friend];
   $("#friendName").textContent = F.name;
@@ -1594,8 +1632,9 @@ let dStream = null, dRaf = 0, dPeak = 0;
 const dSet = (id, html) => { $(id).innerHTML = html; };
 function openDiag(){
   stopListening(); hush(); setMic("idle");
-  dSet("#dBrowser", (isEdge ? '<span class="good">Microsoft Edge</span>' : isChrome ? '<span class="good">Google Chrome</span>' : '<span class="bad">' + browserName + " (không nghe được giọng nói)</span>")
-    + " · " + (SR ? "có bộ nhận giọng nói" : '<span class="bad">không có bộ nhận giọng nói</span>')
+  const how = {helper:"trợ lý nghe/nói trên laptop", local:"nghe ngay trên máy (Whisper)", browser:"bộ nghe của trình duyệt"}[engine()] || "chưa có cách nghe";
+  dSet("#dBrowser", (isEdge ? "Microsoft Edge" : isChrome ? "Chrome" : browserName)
+    + " · cách nghe: <b>" + how + "</b>"
     + " · " + (navigator.onLine ? "có Internet" : '<span class="bad">không có Internet</span>'));
   dSet("#dVerdict", ""); $("#dHeard").textContent = "";
   $("#diag").showModal();
@@ -1639,7 +1678,30 @@ $("#dMicBtn").onclick = async () => {
       : '<span class="bad">Micro gần như không thu được tiếng</span> (' + label + "). Micro có thể đang bị tắt tiếng: thử phím tắt micro trên bàn phím, hoặc vào Cài đặt Windows → Âm thanh → Đầu vào, tăng âm lượng micro.");
   })();
 };
-$("#dRecBtn").onclick = () => {
+$("#dRecBtn").onclick = async () => {
+  if (engine() === "local"){
+    // Same path the chat uses on a tablet: record here, transcribe with Whisper on the device
+    dSet("#dRec", "đang mở micro…"); $("#dHeard").textContent = ""; dSet("#dVerdict", "");
+    try{
+      await unlockAudio();
+      const model = loadAsr();
+      dSet("#dRec", "Đang nghe… con nói đi!");
+      const got = await recordLocal(8, 1.1, 10);
+      if (!got){ dSet("#dRec", '<span class="bad">Không nghe thấy tiếng nào trong 8 giây.</span>'); dSet("#dVerdict", "Bé nói to hơn, gần máy hơn, rồi thử lại."); return; }
+      dSet("#dRec", "Đã nghe xong, đang hiểu câu (lần đầu phải tải bộ nghe, xin đợi)…");
+      const out = await model.then(m => m(to16k(got.chunks, got.rate)));
+      const text = String(out && out.text || "").trim();
+      $("#dHeard").textContent = text ? "“" + text + "”" : "";
+      dSet("#dRec", text ? '<span class="good">Nghe được!</span>' : '<span class="bad">Có tiếng nhưng chưa nhận ra chữ.</span>');
+      dSet("#dVerdict", text ? '<span class="good">Mọi thứ hoạt động!</span> Bé có thể nói chuyện với ' + F.name + " rồi." : "Bé nói chậm và rõ hơn rồi thử lại.");
+    }catch(e){
+      const code = typeof e === "string" ? e : (e && e.name) || "lỗi";
+      dSet("#dRec", '<span class="bad">Lỗi: ' + code + "</span>");
+      dSet("#dVerdict", code === "not-allowed" ? "Máy chưa cho dùng micro: bấm ổ khoá cạnh địa chỉ trang → Micro → Cho phép." :
+        code === "needs-tap" ? "Bấm lại nút này một lần nữa." : "Chưa tải được bộ nghe hoặc micro. Kiểm tra Wi-Fi rồi tải lại trang.");
+    }
+    return;
+  }
   if (!SR){ dSet("#dRec", '<span class="bad">Trình duyệt này không có bộ nhận giọng nói.</span> Hãy mở bằng Microsoft Edge.'); return; }
   const r = new SR(); rec = r;
   r.lang = "en-US"; r.continuous = false; r.interimResults = true;
