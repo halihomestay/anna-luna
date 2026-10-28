@@ -799,23 +799,42 @@ async function unlockAudio(){
   }
 }
 const canListen = () => !!engine();
+// v3 needs a recent browser engine; v2 (same Whisper model) also runs on the older Chromium inside
+// Huawei Browser, so it is tried when v3 fails to load.
+const ASR_LIBS = [ASR_LIB, "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2"];
+let asrLibUsed = "";
+function browserVersion(){
+  const ua = navigator.userAgent, m = ua.match(/(HuaweiBrowser|SamsungBrowser|EdgA|Firefox|Chrome)\/([\d.]+)/);
+  const chrome = ua.match(/Chrome\/(\d+)/);
+  return (m ? m[1] + " " + m[2].split(".")[0] : "trình duyệt") + (chrome && m && m[1] !== "Chrome" ? " (Chrome " + chrome[1] + ")" : "");
+}
+async function loadAsrFrom(lib){
+  const { pipeline, env } = await import(lib);
+  // Tablets: one plain WebAssembly thread is slower but far less likely to crash or run out of memory
+  try{ env.backends.onnx.wasm.numThreads = 1; env.backends.onnx.wasm.proxy = false; }catch(e){}
+  const seen = {};
+  return pipeline("automatic-speech-recognition", ASR_MODEL, {
+    progress_callback: p => {
+      if (p.status !== "progress" || !p.total) return;
+      seen[p.file] = [p.loaded, p.total];
+      const all = Object.values(seen), got = all.reduce((a, v) => a + v[0], 0), tot = all.reduce((a, v) => a + v[1], 0);
+      if (micMode !== "speaking") $("#micState").textContent = "Đang tải bộ nghe (chỉ lần đầu): " + Math.round(got / 1048576) + "/" + Math.round(tot / 1048576) + " MB";
+    }
+  });
+}
 function loadAsr(){
   if (asr) return Promise.resolve(asr);
   if (!asrLoading){
     asrLoading = (async () => {
-      const { pipeline, env } = await import(ASR_LIB);
-      // Tablets: one plain WebAssembly thread is slower but far less likely to crash or run out of memory
-      try{ env.backends.onnx.wasm.numThreads = 1; env.backends.onnx.wasm.proxy = false; }catch(e){}
-      const seen = {};
-      asr = await pipeline("automatic-speech-recognition", ASR_MODEL, {
-        progress_callback: p => {
-          if (p.status !== "progress" || !p.total) return;
-          seen[p.file] = [p.loaded, p.total];
-          const all = Object.values(seen), got = all.reduce((a, v) => a + v[0], 0), tot = all.reduce((a, v) => a + v[1], 0);
-          if (micMode !== "speaking") $("#micState").textContent = "Đang tải bộ nghe (chỉ lần đầu): " + Math.round(got / 1048576) + "/" + Math.round(tot / 1048576) + " MB";
-        }
-      });
-      return asr;
+      const errors = [];
+      for (const lib of ASR_LIBS){
+        try{
+          asr = await loadAsrFrom(lib);
+          asrLibUsed = lib.includes("@xenova") ? "v2" : "v3";
+          return asr;
+        }catch(e){ errors.push((lib.includes("@xenova") ? "v2 " : "v3 ") + describeErr(e)); }
+      }
+      throw new Error(errors.join(" | ") + " | " + browserVersion());
     })().catch(e => { asrLoading = null; throw e; });
   }
   return asrLoading;
