@@ -803,7 +803,9 @@ function loadAsr(){
   if (asr) return Promise.resolve(asr);
   if (!asrLoading){
     asrLoading = (async () => {
-      const { pipeline } = await import(ASR_LIB);
+      const { pipeline, env } = await import(ASR_LIB);
+      // Tablets: one plain WebAssembly thread is slower but far less likely to crash or run out of memory
+      try{ env.backends.onnx.wasm.numThreads = 1; env.backends.onnx.wasm.proxy = false; }catch(e){}
       const seen = {};
       asr = await pipeline("automatic-speech-recognition", ASR_MODEL, {
         progress_callback: p => {
@@ -870,12 +872,28 @@ function to16k(chunks, rate){
   for (let i = 0; i < out.length; i++){ const p = i * step, k = Math.floor(p), f = p - k; out[i] = x[k] * (1 - f) + (x[k + 1] || 0) * f; }
   return out;
 }
+// Errors from the speech engine can be numbers or empty objects: turn anything into readable text
+function describeErr(e){
+  if (e instanceof Error) return (e.name + ": " + e.message).slice(0, 200);
+  try{ return (typeof e) + " " + String(e).slice(0, 150); }catch(x){ return typeof e; }
+}
 async function localListen(){
+  let stage = "tải bộ nghe";
   const model = loadAsr();  // start the download while she talks
-  const rec = await recordLocal(10, 1.1, 15);
-  if (!rec){ lastUnclear = false; return []; }
-  showHearing("thinking", 0);
-  const out = await model.then(m => m(to16k(rec.chunks, rec.rate)));
+  model.catch(() => {});    // reported below, at the step that needs it
+  try{
+    stage = "mở micro và nghe";
+    const rec = await recordLocal(10, 1.1, 15);
+    if (!rec){ lastUnclear = false; return []; }
+    showHearing("thinking", 0);
+    stage = "tải bộ nghe";
+    const m = await model;
+    stage = "chuyển giọng thành chữ";
+    var out = await m(to16k(rec.chunks, rec.rate));
+  }catch(e){
+    if (typeof e === "string") throw e;  // recorder codes (needs-tap, not-allowed…) handled by the caller
+    throw {local:true, stage, detail:describeErr(e)};
+  }
   const text = String(out && out.text || "").trim();
   const low = text.toLowerCase();
   if (!text || /\[|\(|for watching|subscribe/.test(low) || ["you", "you.", "bye.", "thank you."].includes(low)){ lastUnclear = true; return []; }
@@ -1480,7 +1498,12 @@ async function startListening(auto){
       srBroken = true;
       if (engine() === "local"){ addSys("Bộ nghe của trình duyệt không chạy, app chuyển sang bộ nghe ngay trên máy."); return startListening(auto); }
     }
-    if (typeof err !== "string") err = (err && err.message) || "local";
+    if (err && err.local){
+      addSys("Bộ nghe trên máy bị lỗi ở bước “" + err.stage + "”: " + err.detail + ". Ba mẹ chụp màn hình dòng này gửi cho Claude nhé. Trong lúc chờ, ba mẹ có thể gõ câu của bé ở ô bên dưới.");
+      $("#typeForm").hidden = false;
+      return;
+    }
+    if (typeof err !== "string") err = describeErr(err);
     // A mic that starts by itself can be refused until the page gets a tap: just ask for the tap.
     if (err === "needs-tap" || (auto && (err === "not-allowed" || err === "service-not-allowed" || err === "start-failed"))){
       $("#micState").textContent = "Bấm vào nút micro để nói nhé";
@@ -1695,8 +1718,8 @@ $("#dRecBtn").onclick = async () => {
       dSet("#dRec", text ? '<span class="good">Nghe được!</span>' : '<span class="bad">Có tiếng nhưng chưa nhận ra chữ.</span>');
       dSet("#dVerdict", text ? '<span class="good">Mọi thứ hoạt động!</span> Bé có thể nói chuyện với ' + F.name + " rồi." : "Bé nói chậm và rõ hơn rồi thử lại.");
     }catch(e){
-      const code = typeof e === "string" ? e : (e && e.name) || "lỗi";
-      dSet("#dRec", '<span class="bad">Lỗi: ' + code + "</span>");
+      const code = typeof e === "string" ? e : describeErr(e);
+      dSet("#dRec", '<span class="bad">Lỗi: </span>' + code.replace(/[<>&]/g, ""));
       dSet("#dVerdict", code === "not-allowed" ? "Máy chưa cho dùng micro: bấm ổ khoá cạnh địa chỉ trang → Micro → Cho phép." :
         code === "needs-tap" ? "Bấm lại nút này một lần nữa." : "Chưa tải được bộ nghe hoặc micro. Kiểm tra Wi-Fi rồi tải lại trang.");
     }
