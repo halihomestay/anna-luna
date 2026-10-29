@@ -102,6 +102,10 @@ button{cursor:pointer}
 .chat{overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-block:6px 12px;min-height:0}
 .msg{display:flex;gap:8px;align-items:flex-end;max-width:92%}
 .msg.friend-msg{align-self:flex-start}
+.msg.teacher{align-self:flex-start;align-items:flex-start}
+.msg.teacher .who-mini{display:flex;flex-direction:column;align-items:center;gap:2px;flex:none;font-size:12px;font-weight:700;color:var(--ok)}
+.msg.teacher .who-mini svg{width:40px;height:40px}
+.msg.teacher .bubble{background:var(--ok-bg);border:2px solid var(--ok);border-top-left-radius:6px;font-size:22px}
 .msg.kid{align-self:flex-end}
 .bubble{border-radius:22px;padding:10px 16px 8px;min-width:0;overflow-wrap:anywhere;font-family:var(--font-display);font-weight:600;line-height:1.3}
 .friend-msg .bubble{background:var(--card);border:2px solid var(--line);border-bottom-left-radius:6px;font-size:22px}
@@ -185,6 +189,17 @@ dialog::backdrop{background:rgba(20,16,50,.45)}
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="teacher" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="31" style="fill:var(--ok-bg)"/>
+    <circle cx="32" cy="13" r="7" fill="#4a3426"/>
+    <path d="M14 38c0-14 8-22 18-22s18 8 18 22v6H14z" fill="#4a3426"/>
+    <circle cx="32" cy="36" r="15" style="fill:var(--skin)"/>
+    <path d="M17 33c2-8 8-12 15-12s13 4 15 12c-5-4-10-6-15-6s-10 2-15 6z" fill="#4a3426"/>
+    <circle cx="26" cy="36" r="4" fill="none" stroke="#2a1c12" stroke-width="1.6"/><circle cx="38" cy="36" r="4" fill="none" stroke="#2a1c12" stroke-width="1.6"/>
+    <path d="M30 36h4" stroke="#2a1c12" stroke-width="1.6"/>
+    <circle cx="26" cy="36" r="1.4" fill="#2a1c12"/><circle cx="38" cy="36" r="1.4" fill="#2a1c12"/>
+    <ellipse class="mouth" cx="32" cy="45" rx="3.6" ry="1.8" fill="#b3413f"/>
+  </symbol>
   <symbol id="kid" viewBox="0 0 64 64">
     <circle cx="32" cy="32" r="31" style="fill:var(--ink-wash)"/>
     <path d="M12 36c0-16 9-25 20-25s20 9 20 25v14H12z" style="fill:var(--hair)"/>
@@ -293,6 +308,10 @@ dialog::backdrop{background:rgba(20,16,50,.45)}
 /* =========================================================
    Friends
    ========================================================= */
+// Cô Mia: the grown-up teacher who steps in for corrections, pronunciation and explanations,
+// so the friends keep their child voices and the child also gets used to an adult voice.
+const TEACHER = {name:"Mia", label:"Cô Mia", tts:"en-US-JennyNeural", pack:"mia", pitch:1,
+  voices:[/Jenny.*Natural/i,/Aria.*Natural/i,/Michelle.*Natural/i,/Google US English/i,/Samantha/i,/Zira/i]};
 const FRIENDS = {
   emma:{name:"Anna", age:"eight", country:"Canada", pet:"dog", petName:"Max", food:"pancakes", color:"blue",
         hobby:"draw", sib:"little brother", weather:"In Canada, we have lots of snow in winter!",
@@ -748,8 +767,8 @@ fetch("/api/ping", {cache:"no-store"}).then(r => r.ok ? r.json() : null).then(s 
 }).catch(() => {});
 const pct = r => (r >= 1 ? "+" : "") + Math.round((r - 1) * 100) + "%";
 const VI_VOICE = "vi-VN-HoaiMyNeural";
-async function helperSpeak(text, rate, lang){
-  const voice = lang === "vi" ? VI_VOICE : F.tts;
+async function helperSpeak(text, rate, lang, who){
+  const voice = lang === "vi" ? VI_VOICE : who === "teacher" ? TEACHER.tts : F.tts;
   const r = await fetch("/api/speak", {method:"POST", body:JSON.stringify({text, voice, rate:lang === "vi" ? "+0%" : pct(rate || prefs.rate)})});
   const p = await r.json();
   if (!r.ok || p.error) throw new Error(p.error || "speak failed");
@@ -924,25 +943,32 @@ async function localListen(){
 }
 
 /* Recorded child voices (voices/<friend>.bin from build_voices.py), used when the laptop helper is not there */
-let VB = null, vbLoading = null, clipSrc = null;
+const BANKS = {}, bankLoading = {};  // pack id -> {idx, bin}
+let clipSrc = null;
+const packFor = who => who === "teacher" ? TEACHER.pack : prefs.friend;
+function loadPack(id){
+  if (BANKS[id]) return Promise.resolve(BANKS[id]);
+  if (!bankLoading[id]){
+    bankLoading[id] = (async () => {
+      const idx = await (await fetch("voices/" + id + ".json")).json();
+      const bin = await (await fetch("voices/" + id + ".bin")).arrayBuffer();
+      return (BANKS[id] = {idx, bin});
+    })().catch(() => { delete bankLoading[id]; return null; });
+  }
+  return bankLoading[id];
+}
+// The friend's pack first (she speaks first), Cô Mia's in the background
 function loadVoiceBank(){
   if (HELPER) return Promise.resolve(null);
-  const id = prefs.friend;
-  if (VB && VB.id === id) return Promise.resolve(VB);
-  if (vbLoading && vbLoading.id === id) return vbLoading.p;
-  const p = (async () => {
-    const idx = await (await fetch("voices/" + id + ".json")).json();
-    const bin = await (await fetch("voices/" + id + ".bin")).arrayBuffer();
-    VB = {id, idx, bin};
-    return VB;
-  })().catch(() => null);
-  vbLoading = {id, p};
-  return p;
+  const friend = loadPack(prefs.friend);
+  friend.then(() => loadPack(TEACHER.pack));
+  return friend;
 }
-async function playClip(sentence, rate){
-  const ent = VB && VB.id === prefs.friend && VB.idx[voiceKey(sentence)];
+async function playClip(sentence, rate, who){
+  const bank = BANKS[packFor(who)];
+  const ent = bank && bank.idx[voiceKey(sentence)];
   if (!ent || !audioCtx || audioCtx.state !== "running") return false;
-  const buf = await audioCtx.decodeAudioData(VB.bin.slice(ent[0], ent[0] + ent[1]));
+  const buf = await audioCtx.decodeAudioData(bank.bin.slice(ent[0], ent[0] + ent[1]));
   // The voice service pads each clip with silence: play only the spoken part, so sentences flow
   const d = buf.getChannelData(0), sr = buf.sampleRate;
   let a = 0, b = d.length - 1;
@@ -959,30 +985,31 @@ async function playClip(sentence, rate){
     src.start(0, from, dur);
   });
 }
-async function speakOne(text, rate, lang){
+async function speakOne(text, rate, lang, who){
   if (HELPER && text){
-    try{ return await helperSpeak(text, rate, lang); }catch(e){ /* fall back to the browser voice */ }
+    try{ return await helperSpeak(text, rate, lang, who); }catch(e){ /* fall back to the browser voice */ }
   }
-  if (text && lang !== "vi" && VB && VB.id === prefs.friend){
+  if (text && lang !== "vi" && BANKS[packFor(who)]){
     const my = talkToken;
     for (const s of splitSentences(text)){
       if (my !== talkToken) return;
       let played = false;
-      try{ played = await playClip(s, rate); }catch(e){}
-      if (!played) await browserSpeak(s, rate, lang);  // a sentence not in the pack: the device voice, pitched up
+      try{ played = await playClip(s, rate, who); }catch(e){}
+      if (!played) await browserSpeak(s, rate, lang, who);  // not in the pack: the device voice (pitched up for the friends)
     }
     return;
   }
-  return browserSpeak(text, rate, lang);
+  return browserSpeak(text, rate, lang, who);
 }
-function browserSpeak(text, rate, lang){
+function browserSpeak(text, rate, lang, who){
   return new Promise(res => {
     if (!hasTTS || !text) return res();
     const u = new SpeechSynthesisUtterance(text);
-    const v = lang === "vi" ? voices.find(v => /^vi/i.test(v.lang)) : voiceFor(F);
+    const P = who === "teacher" ? Object.assign({lang:/^en[-_]US/i}, TEACHER) : F;
+    const v = lang === "vi" ? voices.find(v => /^vi/i.test(v.lang)) : voiceFor(P);
     if (lang === "vi" && !v) return res();  // no Vietnamese voice on this browser: the text stays on screen
     if (v){ u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
-    u.rate = rate || prefs.rate; u.pitch = v && /Natural/i.test(v.name) ? 1 : F.pitch;
+    u.rate = rate || prefs.rate; u.pitch = v && /Natural/i.test(v.name) ? 1 : P.pitch;
     let fin = false;
     const done = () => { if (!fin){ fin = true; clearTimeout(t); res(); } };
     const t = setTimeout(done, 2500 + text.length * 140 / u.rate);
@@ -991,13 +1018,13 @@ function browserSpeak(text, rate, lang){
   });
 }
 let talkToken = 0;
-async function talk(parts){
+async function talk(parts, who){
   const my = ++talkToken;
   if (hasTTS) speechSynthesis.cancel();
   setMic("speaking");
   for (const p of parts){
     if (my !== talkToken) return false;
-    await speakOne(typeof p === "string" ? p : p.text, typeof p === "string" ? 0 : p.rate, typeof p === "string" ? "" : p.lang);
+    await speakOne(typeof p === "string" ? p : p.text, typeof p === "string" ? 0 : p.rate, typeof p === "string" ? "" : p.lang, who);
   }
   return my === talkToken;
 }
@@ -1057,14 +1084,22 @@ const prefs = Object.assign({friend:"emma", name:"", age:6, level:"1", rate:0.88
 let F = FRIENDS[prefs.friend];
 
 function scrollDown(){ chat.scrollTop = chat.scrollHeight; }
-function speakBtn(text, rate, cls){
+function speakBtn(text, rate, cls, who){
   const b = document.createElement("button");
   b.type = "button"; b.className = cls || "say-again"; b.setAttribute("aria-label", "Nghe lại");
   b.innerHTML = '<svg><use href="#i-speak"/></svg>';
-  b.onclick = () => { stopListening(); talk([{text, rate}]).then(() => setMic("idle")); };
+  b.onclick = () => { stopListening(); talk([{text, rate}], who).then(() => setMic("idle")); };
   return b;
 }
-function addFriend(text){
+function addFriend(text, who){
+  if (who === "teacher"){
+    const m = document.createElement("div"); m.className = "msg teacher";
+    const a = document.createElement("div"); a.className = "who-mini";
+    a.innerHTML = '<svg aria-hidden="true"><use href="#teacher"/></svg>' + TEACHER.label;
+    const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
+    m.append(a, bub, speakBtn(text, prefs.rate, null, "teacher")); chat.appendChild(m); scrollDown();
+    return;
+  }
   const m = document.createElement("div"); m.className = "msg friend-msg";
   const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
   m.append(bub, speakBtn(text, prefs.rate)); chat.appendChild(m); scrollDown();
@@ -1107,8 +1142,8 @@ function maybeDrill(react){
   const word = weak.w;
   addCard("sound", "Từ cần luyện phát âm", makeSentence(word), null,
     "Máy nghe chưa rõ từ này (chắc chắn " + Math.round(weak.c * 100) + "%). " + tipFor(word) + " Bấm vào từ để nghe chậm.");
-  const line = (react ? react + " " : "") + "Let's practice one word: " + word + ". Say it with me: " + word + "!";
-  return startRepeat(cap(word) + ".", line, "", true);
+  const line = "Let's practice one word: " + word + ". Say it with me: " + word + "!";
+  return startRepeat(cap(word) + ".", line, react || "", true, "teacher");
 }
 function wordsEl(sent, okItems){
   const box = document.createElement("div"); box.className = "words";
@@ -1188,13 +1223,26 @@ function planTopics(first){
   return first ? [TOPICS[0]].concat(order) : order;
 }
 
-async function friendSays(text, speech, then){
-  addFriend(text);
+async function friendSays(text, speech, then, who){
+  if (who === "teacher" && !S.metMia){
+    // First time Cô Mia appears: she says who she is
+    S.metMia = true;
+    const hi = "Hi " + kidName() + "! I'm Miss Mia, your teacher. I'm here to help you.";
+    text = hi + " " + text;
+    speech = [hi].concat(speech || [splitSentences(text.slice(hi.length + 1)).join(" ")]);
+  }
+  addFriend(text, who);
   if (then) then();
-  const ok = await talk(speech || [text]);
+  const ok = await talk(speech || [text], who);
   if (!ok) return;
   setMic("idle");
   if (prefs.auto && canListen() && !S.ended) setTimeout(() => { if (micMode === "idle") startListening(true); }, 600);
+}
+const teacherSays = (text, speech, then) => friendSays(text, speech, then, "teacher");
+// Cô Mia praises, then hands the chat back to the friend
+async function teacherThen(text, next){
+  addFriend(text, "teacher");
+  if (await talk([text], "teacher")) next();
 }
 
 function askCurrent(prefix){
@@ -1206,7 +1254,7 @@ function askCurrent(prefix){
     friendSays((prefix ? prefix + " " : "") + q, null, () => addCard("target", "Con nói theo câu này", S.target));
     return;
   }
-  S.mode = "answer"; S.isDrill = false;
+  S.mode = "answer"; S.isDrill = false; S.byTeacher = false;
   friendSays((prefix ? prefix + " " : "") + q);
 }
 function advance(prefix){
@@ -1219,10 +1267,11 @@ function advance(prefix){
   }
   askCurrent(prefix);
 }
-function startRepeat(sentenceText, line, after, learn){
+function startRepeat(sentenceText, line, after, learn, who){
   S.mode = "repeat"; S.target = makeSentence(sentenceText); S.tries = 0; S.after = after || ""; S.repeats++; S.isDrill = false;
+  S.byTeacher = who === "teacher";
   if (learn) S.learned.push(sentenceText);
-  friendSays(line, null, () => addCard("target", "Con nói theo câu này", S.target));
+  friendSays(line, null, () => addCard("target", "Con nói theo câu này", S.target), who);
 }
 
 function detectYN(toks){
@@ -1277,6 +1326,7 @@ function splitSentences(text){
 const voiceKey = s => s.trim().replace(/\s+/g, " ").toLowerCase();
 function collectVoiceLines(names){
   const keep = {F, name:prefs.name, last:S.lastX}, result = {};
+  const mia = new Set(), addMia = s => splitSentences(s).forEach(x => mia.add(x));  // Cô Mia: corrections, models, explanations
   const likes = cat => [...new Set(LEX[cat].map(r => r.split("|")[1]))];
   const fixed = [...PRAISE, ...SORRY, "Yes! That's right!", "Good guess!", "Me? I like it too!", "No problem! Let me say it slowly.",
     "Now you say it!", "You can say:", "Try it!", "That's okay!", "Can you say it?", "Can you say the whole sentence?", "Yes!", "Good!",
@@ -1328,7 +1378,32 @@ function collectVoiceLines(names){
       }
     }
     result[id] = [...out].filter(s => s && !/\{|\}/.test(s));
+    // Everything Cô Mia can say: the fixed coaching phrases, word meanings, and every question and model sentence
+    fixed.forEach(addMia);
+    GLOSS.forEach(g => { addMia(cap(g.w) + "?"); addMia(g.en); });
+    for (const name of names){
+      prefs.name = name;
+      addMia("Hi " + kidName() + "! I'm Miss Mia, your teacher. I'm here to help you.");
+      addMia("Are you there, " + kidName() + "?");
+    }
+    [...out].forEach(s => { if (/[?]$/.test(s) || /^(Say|You can say|Like this|But the answer is|Now say|So),?:?$/.test(s)) addMia(s); });
+    for (const tp of TOPICS) for (const tn of tp.turns){
+      const q = fill(tn.q);
+      addMia(q); addMia("So, " + q.replace(/^(\w)(\w*)/, (m, a, b) => /^I\b/.test(m) ? m : a.toLowerCase() + b));
+    }
   }
+  // Model and example sentences are the same for both friends: take them from the friends' lists
+  const models = new Set();
+  for (const tp of TOPICS) for (const tn of tp.turns){
+    if (tn.t === "yn"){ models.add(fill(tn.model.yes)); models.add(fill(tn.model.no)); }
+    if (tn.t === "free") models.add(tn.ex);
+    if (tn.t === "say") models.add(tn.target);
+    if (tn.t === "pick" && !tn.expect) [...new Set(LEX[tn.cat].map(r => r.split("|")[1]))].forEach(x => models.add(fill(tn.model, {x})));
+    if (tn.t === "pick" && tn.expect) models.add(fill(tn.model));
+    if (tn.t === "num") (tn.expect ? [tn.expect] : NUMW.slice(1, 13)).forEach(n => models.add(fill(tn.model, {n})));
+  }
+  models.forEach(addMia);
+  result[TEACHER.pack] = [...mia].filter(s => s && !/\{|\}/.test(s));
   F = keep.F; prefs.name = keep.name; S.lastX = keep.last;
   return result;
 }
@@ -1506,12 +1581,12 @@ function explainQuestion(prefix){
   const lead = (prefix ? prefix + " " : "") + "No problem! Let me say it slowly.";
   if (S.mode === "repeat" && S.target){
     addHelpCard("Nghĩa là", "Con nghe rồi nói theo câu này nhé.", S.target.text);
-    return friendSays(lead + " " + S.target.text + " Now you say it!",
+    return teacherSays(lead + " " + S.target.text + " Now you say it!",
       [lead, {text:S.target.text, rate:0.65}, {text:"Con nghe rồi nói theo câu này nhé.", lang:"vi"}, "Now you say it!"]);
   }
   const tn = turn(), en = fill(tn.q), vi = VI_Q[tn.q] ? fill(VI_Q[tn.q]) : "", ex = tn.t === "free" ? tn.ex : exampleFor(tn);
   addHelpCard("Nghĩa là", vi || en, ex);
-  friendSays(lead + " " + en + (ex ? " You can say: " + ex : ""),
+  teacherSays(lead + " " + en + (ex ? " You can say: " + ex : ""),
     [lead, {text:en, rate:0.65}, ...(vi ? [{text:vi, lang:"vi"}] : []), ...(ex ? ["You can say:", {text:ex, rate:0.8}] : [])]);
 }
 function handleHelp(h){
@@ -1521,7 +1596,7 @@ function handleHelp(h){
   if (h.kind === "word"){
     const w = h.g.w;
     addHelpCard("Nghĩa của từ", w + " = " + h.g.vi, null);
-    return friendSays(cap(w) + "? " + (h.g.en ? h.g.en + " " : "") + "In Vietnamese: " + h.g.vi + ". " + backTo,
+    return teacherSays(cap(w) + "? " + (h.g.en ? h.g.en + " " : "") + "In Vietnamese: " + h.g.vi + ". " + backTo,
       [cap(w) + "?", ...(h.g.en ? [h.g.en] : []), {text:w + " nghĩa là " + h.g.vi, lang:"vi"}, {text:backTo, rate:prefs.rate * 0.9}]);
   }
   if (h.kind === "unknown") return explainQuestion("Good question!");
@@ -1530,7 +1605,7 @@ function handleHelp(h){
     const tn = turn();
     const ex = S.mode === "repeat" && S.target ? S.target.text : (tn.t === "free" ? tn.ex : exampleFor(tn));
     if (S.mode === "repeat") return explainQuestion("That's okay!");
-    return startRepeat(ex, "That's okay! You can say: " + ex + " Try it!", "", true);
+    return startRepeat(ex, "That's okay! You can say: " + ex + " Try it!", "", true, "teacher");
   }
   if (h.kind === "ask"){ S.asking = true; return friendSays("Sure! What is your question?"); }
 }
@@ -1562,7 +1637,7 @@ function handleAnswer(alts){
     S.fails++;
     if (S.fails === 1) return friendSays(pick(SORRY) + " " + fill(tn.hint || tn.q));
     const ex = exampleFor(tn);
-    return startRepeat(ex, "That's okay! You can say: " + ex + " Try it!", "", true);
+    return startRepeat(ex, "That's okay! You can say: " + ex + " Try it!", "", true, "teacher");
   }
   if (p.x && tn.t === "pick") S.lastX = p.x;
   if (p.pron){
@@ -1574,13 +1649,13 @@ function handleAnswer(alts){
   if (g){
     const fixed = tokensToSentence(g.tokens);
     addCard("fix", "Nói thế này hay hơn", makeSentence(fixed), null, g.vi);
-    return startRepeat(fixed, pick(["Good try!","Nice!","Ooh!"]) + " We say: " + fixed + " Can you say it?", (tn.t === "free" ? "Wow, " + swapPronouns(norm(fixed)) + "! " : "") + react, true);
+    return startRepeat(fixed, pick(["Good try!","Nice!","Ooh!"]) + " We say: " + fixed + " Can you say it?", (tn.t === "free" ? "Wow, " + swapPronouns(norm(fixed)) + "! " : "") + react, true, "teacher");
   }
   if (tn.t === "free"){
     const need = tn.need && NEED[tn.need];
     const echo = p.toks.length <= 12 ? "Wow, " + swapPronouns(p.toks) + "! " : "Wow! ";
-    if (need && !need.test(p.toks)) return startRepeat(tn.ex, "Nice! " + need.en + " Like this: " + tn.ex + " Can you say it?", "", true);
-    if (p.toks.length < 3) return startRepeat(tn.ex, "Good! Let's say a long sentence. Like this: " + tn.ex + " Can you say it?", "", true);
+    if (need && !need.test(p.toks)) return startRepeat(tn.ex, "Nice! " + need.en + " Like this: " + tn.ex + " Can you say it?", "", true, "teacher");
+    if (p.toks.length < 3) return startRepeat(tn.ex, "Good! Let's say a long sentence. Like this: " + tn.ex + " Can you say it?", "", true, "teacher");
     const freeReact = echo + pick(["That sounds fun!","Cool!","I love that!","That's great!"]);
     const drillFree = maybeDrill(freeReact);
     if (drillFree !== null) return drillFree;
@@ -1588,12 +1663,12 @@ function handleAnswer(alts){
     return advance(freeReact);
   }
   if (tn.expect && !p.right) return startRepeat(model, "Good guess! But the answer is: " + model + " Can you say it?", "", true);
-  if (p.pron) return startRepeat(model, react + " Listen: " + p.pron.word + ". Can you say: " + model + "?", "", true);
+  if (p.pron) return startRepeat(model, "Listen: " + p.pron.word + ". Can you say: " + model + "?", react, true, "teacher");
   const drill = maybeDrill(react);
   if (drill !== null) return drill;
   const short = p.toks.length < 3 || p.fromYes;
   const wantFull = model && short && S.repeats < 2 && (level() >= 2 || Math.random() < 0.5);
-  if (wantFull) return startRepeat(model, pick(["Yes!","Good!","Great!"]) + " Can you say the whole sentence? " + model, react, false);
+  if (wantFull) return startRepeat(model, pick(["Yes!","Good!","Great!"]) + " Can you say the whole sentence? " + model, react, false, "teacher");
   S.repeats = 0;
   advance((Math.random() < 0.35 ? pick(PRAISE) + " " : "") + react);
 }
@@ -1605,6 +1680,8 @@ function handleRepeat(alts){
     addCard("check", "Con đã nói", S.target, chk.okItems);
     const praise = pick(PRAISE);
     if (S.isDrill) return advance(praise);
+    // Cô Mia praises, then the friend carries on in her own voice
+    if (S.byTeacher){ S.byTeacher = false; const after = S.after; return teacherThen(praise, () => advance(after)); }
     return advance(praise + (S.after ? " " + S.after : ""));
   }
   addCard("check", "Từ màu đỏ con nói chưa rõ, bấm vào để nghe", S.target, chk.okItems);
@@ -1613,8 +1690,9 @@ function handleRepeat(alts){
     const line = "Almost! Listen: " + bad.slice(0, 2).join(", ") + ". " + S.target.text + " Try again!";
     const speech = ["Almost! Listen."].concat(bad.slice(0, 2).map(w => ({text:w, rate:0.6})), [{text:S.target.text, rate:prefs.rate * 0.9}, "Try again!"]);
     bad.slice(0, 1).forEach(w => S.learned.push(w));
-    return friendSays(line, speech);
+    return friendSays(line, speech, null, S.byTeacher ? "teacher" : "");
   }
+  if (S.byTeacher){ S.byTeacher = false; const after = S.after; return teacherThen("Good try! You are doing great.", () => advance(after)); }
   advance("Good try! You are doing great." + (S.after ? " " + S.after : ""));
 }
 function closing(prefix){
@@ -1707,9 +1785,9 @@ async function startListening(auto){
     noSpeechCount++;
     if (lastUnclear && noSpeechCount <= 2){
       addSys("Máy nghe chưa rõ. Bé ngồi gần máy tính (khoảng một gang tay đến nửa mét) và nói to hơn nhé.");
-      return friendSays("Sorry, I couldn't hear you well. Can you say it a little louder? " + (S.mode === "repeat" ? "Say: " + S.target.text : fill(turn().q)));
+      return friendSays("Sorry, I couldn't hear you well. Can you say it a little louder? " + (S.mode === "repeat" ? "Say: " + S.target.text : fill(turn().q)), null, null, S.byTeacher ? "teacher" : "");
     }
-    if (auto && noSpeechCount === 1) return friendSays("Are you there, " + kidName() + "? " + (S.mode === "repeat" ? "Say: " + S.target.text : fill(turn().q)));
+    if (auto && noSpeechCount === 1) return friendSays("Are you there, " + kidName() + "? " + (S.mode === "repeat" ? "Say: " + S.target.text : fill(turn().q)), null, null, S.byTeacher ? "teacher" : "");
     $("#micState").textContent = HELPER ? "Bấm vào micro để nói nhé. Bé ngồi gần máy và nói to, rõ."
       : recTrace.includes("soundstart")
       ? "Micro có nghe tiếng nhưng chưa hiểu bé nói gì. Bấm micro, nói to và rõ hơn nhé."
