@@ -106,6 +106,7 @@ button{cursor:pointer}
 .bubble{border-radius:22px;padding:10px 16px 8px;min-width:0;overflow-wrap:anywhere;font-family:var(--font-display);font-weight:600;line-height:1.3}
 .friend-msg .bubble{background:var(--card);border:2px solid var(--line);border-bottom-left-radius:6px;font-size:22px}
 .kid .bubble{background:var(--ink);color:var(--on-ink);border-bottom-right-radius:6px;font-size:20px}
+.kid .bubble .unsure{text-decoration:underline wavy var(--star);text-decoration-thickness:2px;text-underline-offset:6px}
 .say-again{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none}
 .say-again svg{width:18px;height:18px;color:var(--ink)}
 .card{border-radius:16px;padding:8px 12px 10px;font-size:14px;display:flex;flex-direction:column;gap:6px;max-width:min(480px,92%);border:2px solid}
@@ -296,11 +297,11 @@ const FRIENDS = {
   emma:{name:"Anna", age:"eight", country:"Canada", pet:"dog", petName:"Max", food:"pancakes", color:"blue",
         hobby:"draw", sib:"little brother", weather:"In Canada, we have lots of snow in winter!",
         hair:"#7a4a26", bow:"#f2a900", desc:"8 tuổi, đến từ Canada", lang:/^en[-_]US/i, tts:"en-US-AnaNeural",
-        voices:[/Ana.*Natural/i,/Jenny.*Natural/i,/Aria.*Natural/i,/Ava.*Natural/i,/Natural/i,/Google US English/i,/Samantha/i,/Zira/i], pitch:1.12},
+        voices:[/Ana.*Natural/i,/Jenny.*Natural/i,/Aria.*Natural/i,/Ava.*Natural/i,/Natural/i,/Google US English/i,/Samantha/i,/Zira/i], pitch:1.4},
   gina:{name:"Luna", age:"seven", country:"England", pet:"cat", petName:"Coco", food:"mangoes", color:"pink",
         hobby:"swim", sib:"big sister", weather:"In London, it rains a lot. I love my red umbrella!",
         hair:"#d39a32", bow:"#e0567a", desc:"7 tuổi, đến từ London", lang:/^en[-_](GB|AU|NZ)/i, tts:"en-GB-MaisieNeural",
-        voices:[/Maisie.*Natural/i,/Natasha.*Natural/i,/Sonia.*Natural/i,/Libby.*Natural/i,/Natural/i,/Google UK English Female/i,/Karen/i,/Hazel/i,/Catherine/i], pitch:1.2}
+        voices:[/Maisie.*Natural/i,/Natasha.*Natural/i,/Sonia.*Natural/i,/Libby.*Natural/i,/Natural/i,/Google UK English Female/i,/Karen/i,/Hazel/i,/Catherine/i], pitch:1.5}
 };
 
 /* =========================================================
@@ -760,11 +761,12 @@ async function helperListen(){
   }, 150);
   let r, p;
   try{
-    r = await fetch("/api/listen", {method:"POST", body:JSON.stringify({max_wait_seconds:10, pause_seconds:1.1})});
+    r = await fetch("/api/listen", {method:"POST", body:JSON.stringify({max_wait_seconds:10, pause_seconds:1.1, detail:true})});  // detail: per-word confidence for pronunciation (~0.1 s more)
     p = await r.json();
   }finally{ clearInterval(poll); }
   if (!r.ok || p.error) throw "helper: " + (p.error || r.status);
   lastUnclear = !!p.unclear;
+  lastWords = p.heard && Array.isArray(p.words) ? p.words : [];
   return p.heard && p.text ? [p.text] : [];
 }
 /* ---------- Listening on a tablet: Whisper running inside the page ----------
@@ -787,10 +789,12 @@ function engine(){
 // Phones and tablets only let a page record after a tap: open the mic and audio engine on the Start tap,
 // so the automatic listening after each question works.
 async function unlockAudio(){
-  if (engine() !== "local") return;
+  if (HELPER) return;
   try{
+    // The audio engine also plays the recorded child voices, so it is opened for every engine
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === "suspended") await audioCtx.resume();
+    if (engine() !== "local") return;
     if (!micStream) micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
   }catch(e){
     addSys(e && e.name === "NotAllowedError"
@@ -919,9 +923,55 @@ async function localListen(){
   return [text];
 }
 
+/* Recorded child voices (voices/<friend>.bin from build_voices.py), used when the laptop helper is not there */
+let VB = null, vbLoading = null, clipSrc = null;
+function loadVoiceBank(){
+  if (HELPER) return Promise.resolve(null);
+  const id = prefs.friend;
+  if (VB && VB.id === id) return Promise.resolve(VB);
+  if (vbLoading && vbLoading.id === id) return vbLoading.p;
+  const p = (async () => {
+    const idx = await (await fetch("voices/" + id + ".json")).json();
+    const bin = await (await fetch("voices/" + id + ".bin")).arrayBuffer();
+    VB = {id, idx, bin};
+    return VB;
+  })().catch(() => null);
+  vbLoading = {id, p};
+  return p;
+}
+async function playClip(sentence, rate){
+  const ent = VB && VB.id === prefs.friend && VB.idx[voiceKey(sentence)];
+  if (!ent || !audioCtx || audioCtx.state !== "running") return false;
+  const buf = await audioCtx.decodeAudioData(VB.bin.slice(ent[0], ent[0] + ent[1]));
+  // The voice service pads each clip with silence: play only the spoken part, so sentences flow
+  const d = buf.getChannelData(0), sr = buf.sampleRate;
+  let a = 0, b = d.length - 1;
+  while (a < b && Math.abs(d[a]) < 0.01) a++;
+  while (b > a && Math.abs(d[b]) < 0.01) b--;
+  const from = Math.max(0, a / sr - 0.03), dur = Math.min(buf.duration - from, (b - a) / sr + 0.15);
+  return new Promise(res => {
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = Math.min(1.25, Math.max(0.75, (rate || prefs.rate) / 0.88));  // packs are recorded at the 0.88 speed
+    src.connect(audioCtx.destination);
+    clipSrc = src;
+    src.onended = () => { if (clipSrc === src) clipSrc = null; res(true); };
+    src.start(0, from, dur);
+  });
+}
 async function speakOne(text, rate, lang){
   if (HELPER && text){
     try{ return await helperSpeak(text, rate, lang); }catch(e){ /* fall back to the browser voice */ }
+  }
+  if (text && lang !== "vi" && VB && VB.id === prefs.friend){
+    const my = talkToken;
+    for (const s of splitSentences(text)){
+      if (my !== talkToken) return;
+      let played = false;
+      try{ played = await playClip(s, rate); }catch(e){}
+      if (!played) await browserSpeak(s, rate, lang);  // a sentence not in the pack: the device voice, pitched up
+    }
+    return;
   }
   return browserSpeak(text, rate, lang);
 }
@@ -951,7 +1001,7 @@ async function talk(parts){
   }
   return my === talkToken;
 }
-function hush(){ talkToken++; if (hasTTS) speechSynthesis.cancel(); }
+function hush(){ talkToken++; if (hasTTS) speechSynthesis.cancel(); if (clipSrc){ try{ clipSrc.stop(); }catch(e){} } }
 
 let rec = null, micMode = "idle", recTrace = [];
 function listen(){
@@ -1019,10 +1069,46 @@ function addFriend(text){
   const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
   m.append(bub, speakBtn(text, prefs.rate)); chat.appendChild(m); scrollDown();
 }
+/* ---------- Pronunciation from Whisper's per-word confidence (laptop helper only) ----------
+   Whisper usually guesses the right word even when it is said unclearly, so comparing words alone
+   hides mistakes; a low confidence on a word is the sign that it did not sound right. */
+let lastWords = [];
+const UNSURE = 0.5;
+function unsureWords(){
+  return lastWords
+    .map(w => ({w:String(w.word || "").replace(/[^A-Za-z']/g, "").toLowerCase(), c:Number(w.confidence)}))
+    .filter(x => x.w.length >= 3 && x.c < UNSURE && !wildSet.has(x.w))
+    .sort((a, b) => a.c - b.c);
+}
 function addKid(text){
   const m = document.createElement("div"); m.className = "msg kid";
-  const bub = document.createElement("div"); bub.className = "bubble"; bub.textContent = text;
+  const bub = document.createElement("div"); bub.className = "bubble";
+  const ws = lastWords.map(w => String(w.word || "").trim()).filter(Boolean);
+  if (ws.length && norm(ws.join(" ")).join(" ") === norm(text).join(" ")){
+    lastWords.forEach((w, i) => {
+      if (i) bub.appendChild(document.createTextNode(" "));  // keep the space outside the underline
+      const s = document.createElement("span");
+      s.textContent = String(w.word || "").trim();
+      const clean = String(w.word || "").replace(/[^A-Za-z']/g, "");
+      if (Number(w.confidence) < UNSURE && clean.length >= 3 && !wildSet.has(clean.toLowerCase())){
+        s.className = "unsure"; s.title = "Từ này máy nghe chưa rõ";
+      }
+      bub.appendChild(s);
+    });
+  } else bub.textContent = text;
   m.appendChild(bub); chat.appendChild(m); scrollDown();
+}
+// One short word drill when a word sounded unclear; at most every other answer so the chat keeps flowing
+function maybeDrill(react){
+  if (S.drillGap > 0) return null;
+  const weak = unsureWords()[0];
+  if (!weak) return null;
+  S.drillGap = 2;
+  const word = weak.w;
+  addCard("sound", "Từ cần luyện phát âm", makeSentence(word), null,
+    "Máy nghe chưa rõ từ này (chắc chắn " + Math.round(weak.c * 100) + "%). " + tipFor(word) + " Bấm vào từ để nghe chậm.");
+  const line = (react ? react + " " : "") + "Let's practice one word: " + word + ". Say it with me: " + word + "!";
+  return startRepeat(cap(word) + ".", line, "", true);
 }
 function wordsEl(sent, okItems){
   const box = document.createElement("div"); box.className = "words";
@@ -1181,6 +1267,72 @@ function parse(tn, alts){
   }
   return {ok:false, toks:toks0, heard:alts[0]};
 }
+/* ---------- Voice packs: every scripted sentence pre-recorded in the child voices ----------
+   collectVoiceLines() lists all sentences the friends can say (templates filled with every word list
+   entry); build_voices.py records them into voices/<friend>.bin + .json for tablets without the laptop. */
+// Split after . ! ? and after lead-ins like "You can say:" or "So," so they are recorded once and reused
+function splitSentences(text){
+  return String(text || "").replace(/^(So,)\s+/, "$1\n").split(/(?<=[.!?:])\s+|\n/).map(s => s.trim()).filter(Boolean);
+}
+const voiceKey = s => s.trim().replace(/\s+/g, " ").toLowerCase();
+function collectVoiceLines(names){
+  const keep = {F, name:prefs.name, last:S.lastX}, result = {};
+  const likes = cat => [...new Set(LEX[cat].map(r => r.split("|")[1]))];
+  const fixed = [...PRAISE, ...SORRY, "Yes! That's right!", "Good guess!", "Me? I like it too!", "No problem! Let me say it slowly.",
+    "Now you say it!", "You can say:", "Try it!", "That's okay!", "Can you say it?", "Can you say the whole sentence?", "Yes!", "Good!",
+    "Nice!", "Ooh!", "Good try!", "Almost! Listen.", "Try again!", "Good try! You are doing great.", "Sure! What is your question?",
+    "Good question! Hmm, I'm not sure. Let's keep talking!", "Sorry, I couldn't hear you well. Can you say it a little louder?",
+    "That sounds fun!", "Cool!", "I love that!", "That's great!", "Wow!", "Yay! Let's talk more!", "Hi again!", "Okay! Let's keep talking.",
+    "Okay!", "Good question!", "Let's say a long sentence.", "You did a great job today.", "See you next time!", "Bye bye!",
+    "Here is another way to say it.", "I can't hear you. Please try again!", ...Object.values(NEED).map(n => n.en),
+    "Say:", "You can say:", "Like this:", "But the answer is:", "Now say:", "We say:", "So,", "Listen:", "In Vietnamese:"];
+  for (const [id, friend] of Object.entries(FRIENDS)){
+    F = friend;
+    const out = new Set(), add = s => splitSentences(s).forEach(x => out.add(x));
+    fixed.forEach(add);
+    add("Hi! I'm " + F.name + "!");
+    Object.values(LEX).forEach(rows => rows.forEach(r => add(r.split("|")[2])));
+    GLOSS.forEach(g => { add(cap(g.w) + "?"); add(g.en); });
+    ME_QA.forEach(([, a]) => add(fill(a)));
+    for (const name of names){
+      prefs.name = name;
+      add("Are you there, " + kidName() + "?"); add("I had so much fun talking with you, " + kidName() + "!");
+      add(kidName() + ", are you there? Your turn to talk!");
+      for (const tp of TOPICS){
+        add(fill(tp.intro));
+        for (const tn of tp.turns){
+          const q = fill(tn.q);
+          add(q); add("So, " + q.replace(/^(\w)(\w*)/, (m, a, b) => /^I\b/.test(m) ? m : a.toLowerCase() + b));
+          add("Say: " + q);
+          add(fill(tn.hint)); add(fill(tn.me));
+          const models = [];
+          if (tn.t === "yn"){ add(fill(tn.r.yes)); add(fill(tn.r.no)); models.push(fill(tn.model.yes), fill(tn.model.no)); }
+          if (tn.t === "pick"){
+            likes(tn.cat).forEach(x => {
+              if (typeof tn.r === "string") add(fill(tn.r, {x}));
+              if (!tn.expect) models.push(fill(tn.model, {x}));
+            });
+            if (tn.expect) models.push(fill(tn.model));
+            if (tn.r && tn.r.right) add(fill(tn.r.right));
+          }
+          if (tn.t === "num"){
+            NUMW.slice(1, 13).forEach(n => { if (typeof tn.r === "string") add(fill(tn.r, {n})); if (!tn.expect) models.push(fill(tn.model, {n})); });
+            if (tn.expect){ models.push(fill(tn.model)); add(fill(tn.r.right)); }
+          }
+          if (tn.t === "name"){ add(fill(tn.r, {x:""})); models.push(fill(tn.model, {x:"Lan"})); }
+          if (tn.t === "free") models.push(tn.ex);
+          if (tn.t === "say") models.push(tn.target);
+          try{ models.push(exampleFor(tn)); }catch(e){}
+          models.filter(Boolean).forEach(add);
+        }
+      }
+    }
+    result[id] = [...out].filter(s => s && !/\{|\}/.test(s));
+  }
+  F = keep.F; prefs.name = keep.name; S.lastX = keep.last;
+  return result;
+}
+
 function modelFor(tn, p){
   if (tn.t === "yn") return fill(tn.model[p.ans]);
   if (tn.t === "name") return tn.model.includes("{kid}") ? fill(tn.model.replace("{kid}", prefs.name ? "{kid}" : p.x)) : fill(tn.model, {x:p.x});
@@ -1403,6 +1555,7 @@ function handleAnswer(alts){
     }
   }
   if (S.mode === "repeat") return handleRepeat(alts);
+  S.drillGap = Math.max(0, (S.drillGap || 0) - 1);
   const tn = turn(), p = parse(tn, alts);
   addKid(p.heard || alts[0]);
   if (!p.ok){
@@ -1428,11 +1581,16 @@ function handleAnswer(alts){
     const echo = p.toks.length <= 12 ? "Wow, " + swapPronouns(p.toks) + "! " : "Wow! ";
     if (need && !need.test(p.toks)) return startRepeat(tn.ex, "Nice! " + need.en + " Like this: " + tn.ex + " Can you say it?", "", true);
     if (p.toks.length < 3) return startRepeat(tn.ex, "Good! Let's say a long sentence. Like this: " + tn.ex + " Can you say it?", "", true);
+    const freeReact = echo + pick(["That sounds fun!","Cool!","I love that!","That's great!"]);
+    const drillFree = maybeDrill(freeReact);
+    if (drillFree !== null) return drillFree;
     S.repeats = 0;
-    return advance(echo + pick(["That sounds fun!","Cool!","I love that!","That's great!"]));
+    return advance(freeReact);
   }
   if (tn.expect && !p.right) return startRepeat(model, "Good guess! But the answer is: " + model + " Can you say it?", "", true);
   if (p.pron) return startRepeat(model, react + " Listen: " + p.pron.word + ". Can you say: " + model + "?", "", true);
+  const drill = maybeDrill(react);
+  if (drill !== null) return drill;
   const short = p.toks.length < 3 || p.fromYes;
   const wantFull = model && short && S.repeats < 2 && (level() >= 2 || Math.random() < 0.5);
   if (wantFull) return startRepeat(model, pick(["Yes!","Good!","Great!"]) + " Can you say the whole sentence? " + model, react, false);
@@ -1506,7 +1664,7 @@ async function startListening(auto){
   hush();
   setMic("listening");
   let alts = [];
-  lastUnclear = false;
+  lastUnclear = false; lastWords = [];
   const my = ++listenToken;
   try{ alts = await (HELPER ? helperListen() : engine() === "local" ? localListen() : listen()); }
   catch(err){
@@ -1626,6 +1784,8 @@ $("#btnStart").onclick = async () => {
   prefs.rate = Number($("#fRate").value); prefs.auto = $("#fAuto").checked; prefs.asr = $("#fAsr").value;
   store.set("prefs", prefs);
   await unlockAudio();  // must run on this tap: phones and tablets block recording that starts later by itself
+  // Child voices for tablets: wait up to 6 s for the pack so even the greeting uses it; it keeps loading after
+  if (!HELPER) await Promise.race([loadVoiceBank(), new Promise(r => setTimeout(r, 6000))]);
   wildSet = new Set(norm(prefs.name));
   F = FRIENDS[prefs.friend];
   $("#friendName").textContent = F.name;
@@ -1657,7 +1817,7 @@ $("#btnType").onclick = () => { const f = $("#typeForm"); f.hidden = !f.hidden; 
 $("#typeForm").addEventListener("submit", e => {
   e.preventDefault();
   const v = $("#typeInput").value.trim(); if (!v) return;
-  $("#typeInput").value = ""; stopListening(); hush(); setMic("idle");
+  $("#typeInput").value = ""; stopListening(); hush(); setMic("idle"); lastWords = [];
   handleAnswer([v]);
 });
 const topicsBar = $("#topics");
