@@ -89,17 +89,27 @@ function picCard(pic){
 /* ---------- Talking and waiting, one question at a time ---------- */
 let waiting = null, pendingHelp = false, running = false, silent = 0, current = null;
 const STOP = {stop:true};
+// Speak, waiting out the pause button: a sentence cut by a pause is said again from the start on resume
+async function speak(parts){
+  for (;;){
+    await pauseGate;
+    if (!running) throw STOP;
+    const serial = pauseSerial;
+    const ok = await talk(parts, SPK);
+    if (!running) throw STOP;
+    if (ok || serial === pauseSerial) return;
+  }
+}
 async function say(text, speech, card){
   if (!running) throw STOP;
   addFriend(text, SPK);
   if (card) card();
-  await talk(speech || [text], SPK);
-  if (!running) throw STOP;
+  await speak(speech || [text]);
 }
 async function sayVi(text){
   if (!running || !text) return;
   addFriend(text, SPK);
-  await talk([{text, lang:"vi"}], SPK);
+  await speak([{text, lang:"vi"}]);
 }
 function answer(){
   return new Promise(res => {
@@ -112,9 +122,12 @@ function answer(){
 async function ask(text, speech, card){
   current = {text, speech};
   await say(text, speech, card);
-  const r = await answer();
-  if (r && r.stop) throw STOP;
-  return r;
+  for (;;){
+    const r = await answer();
+    if (r && r.stop) throw STOP;
+    if (r && r.resume){ await speak(speech || [text]); continue; }  // back from a pause: same question, no miss counted
+    return r;
+  }
 }
 
 /* ---------- Understanding the child's answer ---------- */
@@ -384,6 +397,7 @@ window.TIMO = {
   onSilence(unclear){ if (waiting){ const r = waiting; waiting = null; r({silent:true, unclear}); } },
   onHelp(){ if (waiting){ const r = waiting; waiting = null; r({help:true}); } else if (running) pendingHelp = true; },
   onAgain(){ if (waiting){ const r = waiting; waiting = null; r({again:true}); } },
+  onResume(){ silent = 0; if (waiting){ const r = waiting; waiting = null; r({resume:true}); } },  // no waiting: the lesson is at pauseGate and carries on by itself
   stop(){ running = false; if (waiting){ const r = waiting; waiting = null; r(STOP); } },
   progressHTML,
   resetProgress(){ prog = {}; save(); },

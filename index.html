@@ -182,7 +182,11 @@ button.w:hover{border-color:var(--ink)}
 .mic:active{transform:translateY(5px);box-shadow:0 2px 0 var(--ink-deep)}
 .mic.listening{background:var(--red);box-shadow:0 7px 0 color-mix(in srgb,var(--red) 55%,#000)}
 .mic.listening::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:4px solid var(--red);animation:ring 1.2s ease-out infinite}
-.mic.busy{background:var(--muted);box-shadow:0 7px 0 color-mix(in srgb,var(--muted) 55%,#000)}
+.mic.busy,.mic.paused{background:var(--muted);box-shadow:0 7px 0 color-mix(in srgb,var(--muted) 55%,#000)}
+.pause-btn{display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:5px 20px;margin-top:6px;border-radius:999px;border:3px solid var(--line);background:var(--card);color:var(--ink);box-shadow:0 4px 0 var(--grid-strong);font-family:var(--font-display);font-size:19px;font-weight:800;line-height:1}
+.pause-btn svg{width:22px;height:22px;flex:none}
+.pause-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--grid-strong)}
+.pause-btn.on{background:var(--ink);border-color:var(--ink);color:var(--on-ink);box-shadow:0 4px 0 var(--ink-deep)}
 @keyframes ring{from{opacity:.9;transform:scale(.9)}to{opacity:0;transform:scale(1.25)}}
 .mic-state{margin:0;font-weight:700;color:var(--text);text-align:center;font-size:16px}
 .lvl{width:min(220px,60%);height:12px;border-radius:999px;background:var(--chip);border:2px solid var(--line);overflow:hidden}
@@ -251,6 +255,8 @@ dialog::backdrop{background:rgba(20,16,50,.45)}
   </symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
   <symbol id="i-ear" viewBox="0 0 24 24"><path d="M7 9a5 5 0 0 1 10 0c0 3-3 4-3 7a3 3 0 0 1-5.5 1.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M10 9.5a2 2 0 0 1 4 0c0 1.5-2 2-2 3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.5" height="15" rx="1.5" fill="currentColor"/><rect x="13.5" y="4.5" width="4.5" height="15" rx="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.8v14.4a1 1 0 0 0 1.5.86l12-7.2a1 1 0 0 0 0-1.72l-12-7.2A1 1 0 0 0 7 4.8z" fill="currentColor"/></symbol>
   <symbol id="i-speak" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 </svg>
@@ -320,6 +326,7 @@ dialog::backdrop{background:rgba(20,16,50,.45)}
       <button class="mic" id="btnMic" type="button" aria-label="Bấm để nói"><svg id="micIcon"><use href="#i-mic"/></svg></button>
       <button class="side" id="btnAgain" type="button" aria-label="Nghe lại câu hỏi"><span class="circle"><svg><use href="#i-speak"/></svg></span>Nghe lại</button>
     </div>
+    <button class="pause-btn" id="btnPause" type="button" aria-pressed="false"><svg id="pauseIcon" aria-hidden="true"><use href="#i-pause"/></svg><span id="pauseLabel">Tạm dừng</span></button>
     <p class="mic-state" id="micState">Bấm để nói</p>
     <div class="lvl" id="meter" hidden aria-hidden="true"><i id="meterBar"></i></div>
     <p class="live" id="live"></p>
@@ -917,6 +924,7 @@ function loadAsr(){
   }
   return asrLoading;
 }
+let recAbort = null;  // ends the on-device recording early (pause button, help, listen again)
 function recordLocal(maxWait, pause, maxLen){
   return new Promise(async (resolve, reject) => {
     try{
@@ -932,6 +940,7 @@ function recordLocal(maxWait, pause, maxLen){
     let pre = [], chunks = [], levels = [], noise = 0, started = false, loud = 0, last = t0, done = false, ticks = 0;
     const finish = out => {
       if (done) return; done = true;
+      recAbort = null;
       clearTimeout(safety); clearTimeout(alive);
       proc.onaudioprocess = null; try{ src.disconnect(); proc.disconnect(); }catch(e){}
       resolve(out);
@@ -939,6 +948,7 @@ function recordLocal(maxWait, pause, maxLen){
     // Safety nets: sound must start flowing within 2 s, and no listen lasts forever
     const alive = setTimeout(() => { if (!ticks && !done){ done = true; clearTimeout(safety); try{ src.disconnect(); proc.disconnect(); }catch(e){} reject("needs-tap"); } }, 2000);
     const safety = setTimeout(() => finish(chunks.length ? {chunks, rate} : null), (maxWait + maxLen + 2) * 1000);
+    recAbort = () => finish(null);
     proc.onaudioprocess = e => {
       ticks++;
       const x = new Float32Array(e.inputBuffer.getChannelData(0));
@@ -1039,7 +1049,9 @@ async function playClip(sentence, rate, who, packId){
   const hit = clipFor(packId || packFor(who), sentence);
   if (!hit || !audioCtx || audioCtx.state !== "running") return false;
   const {bank, ent} = hit;
+  const my = talkToken;
   const buf = await audioCtx.decodeAudioData(bank.bin.slice(ent[0], ent[0] + ent[1]));
+  if (my !== talkToken) return true;  // paused or interrupted while decoding: stay quiet
   // The voice service pads each clip with silence: play only the spoken part, so sentences flow
   const d = buf.getChannelData(0), sr = buf.sampleRate;
   let a = 0, b = d.length - 1;
@@ -1091,7 +1103,11 @@ function browserSpeak(text, rate, lang, who){
   });
 }
 let talkToken = 0;
-async function talk(parts, who){
+// Pause button state. pauseSerial counts pauses, so a lesson can tell its sentence was cut by one.
+let paused = false, pauseSerial = 0, pauseGate = Promise.resolve(), openGate = null, pendingNext = null;
+// force: a word or sentence the child taps to hear; allowed during a pause, the conversation itself is not
+async function talk(parts, who, force){
+  if (paused && !force) return false;
   const my = ++talkToken;
   if (hasTTS) speechSynthesis.cancel();
   setMic("speaking");
@@ -1161,7 +1177,7 @@ function speakBtn(text, rate, cls, who){
   const b = document.createElement("button");
   b.type = "button"; b.className = cls || "say-again"; b.setAttribute("aria-label", "Nghe lại");
   b.innerHTML = '<svg><use href="#i-speak"/></svg>';
-  b.onclick = () => { stopListening(); talk([{text, rate}], who).then(() => setMic("idle")); };
+  b.onclick = () => { stopListening(); talk([{text, rate}], who, true).then(() => setMic("idle")); };
   return b;
 }
 function addFriend(text, who){
@@ -1224,7 +1240,7 @@ function wordsEl(sent, okItems){
     const b = document.createElement("button"); b.type = "button";
     b.className = "w" + (okItems ? (okItems[i] ? " ok" : " bad") : "");
     b.textContent = it.disp; b.title = "Bấm để nghe từ này";
-    b.onclick = () => { stopListening(); talk([{text:it.disp.replace(/[^\p{L}\p{N}' ]/gu, ""), rate:0.6}]).then(() => setMic("idle")); };
+    b.onclick = () => { stopListening(); talk([{text:it.disp.replace(/[^\p{L}\p{N}' ]/gu, ""), rate:0.6}], undefined, true).then(() => setMic("idle")); };
     box.appendChild(b);
   });
   return box;
@@ -1247,10 +1263,19 @@ function setMic(mode){
   b.classList.toggle("busy", mode === "speaking");
   document.body.classList.toggle("talking", mode === "speaking");
   $("#micIcon").innerHTML = mode === "listening" ? '<use href="#i-ear"/>' : '<use href="#i-mic"/>';
-  s.textContent = mode === "listening" ? "Con nói đi, " + who() + " đang nghe!" :
+  const off = paused && mode !== "speaking";
+  b.classList.toggle("paused", off);
+  const pb = $("#btnPause");
+  pb.hidden = !paused && !canPause();
+  pb.classList.toggle("on", paused);
+  pb.setAttribute("aria-pressed", String(paused));
+  $("#pauseIcon").innerHTML = paused ? '<use href="#i-play"/>' : '<use href="#i-pause"/>';
+  $("#pauseLabel").textContent = paused ? "Tiếp tục" : "Tạm dừng";
+  s.textContent = off ? "Đã tạm dừng, micro đang tắt. Con cứ suy nghĩ và hỏi mẹ nhé." :
+                  mode === "listening" ? "Con nói đi, " + who() + " đang nghe!" :
                   mode === "speaking" ? who() + " đang nói…" :
                   canListen() ? "Bấm để nói" : "Ba mẹ gõ câu trả lời bên dưới";
-  $("#status").textContent = mode === "listening" ? "Đang nghe…" : mode === "speaking" ? "Đang nói…" : (MODE === "timo" ? "Math English Buddy" : "Bạn nói tiếng Anh của bé");
+  $("#status").textContent = off ? "Đang tạm dừng" : mode === "listening" ? "Đang nghe…" : mode === "speaking" ? "Đang nói…" : (MODE === "timo" ? "Math English Buddy" : "Bạn nói tiếng Anh của bé");
   if (mode !== "listening") $("#live").textContent = "";
   $("#meter").hidden = mode !== "listening" || engine() === "browser";
   $("#meter").classList.remove("thinking"); $("#meterBar").style.width = "0";
@@ -1316,7 +1341,9 @@ const teacherSays = (text, speech, then) => friendSays(text, speech, then, "teac
 // Cô Mia praises, then hands the chat back to the friend
 async function teacherThen(text, next){
   addFriend(text, "teacher");
+  const serial = pauseSerial;
   if (await talk([text], "teacher")) next();
+  else if (serial !== pauseSerial) pendingNext = next;  // cut by the pause button: go on from here when she resumes
 }
 
 function askCurrent(prefix){
@@ -1804,6 +1831,7 @@ function showSummary(){
 function jumpTo(topicId){
   const tp = TOPICS.find(t => t.id === topicId);
   if (!tp) return;
+  clearPause();
   stopListening(); hush(); S.ended = false;
   S.topics.splice(S.ti + 1, 0, tp);
   S.ti++; S.qi = 0;
@@ -1813,7 +1841,7 @@ function jumpTo(topicId){
 /* ---------- Mic ---------- */
 let noSpeechCount = 0, listenToken = 0;
 async function startListening(auto){
-  if (!canListen() || micMode === "listening") return;
+  if (paused || !canListen() || micMode === "listening") return;
   hush();
   setMic("listening");
   let alts = [];
@@ -1873,16 +1901,56 @@ async function startListening(auto){
   noSpeechCount = 0;
   handleAnswer(alts);
 }
-function stopListening(){ listenToken++; if (rec){ try{ rec.abort(); }catch(e){} rec = null; } if (micMode === "listening") setMic("idle"); }
-$("#btnHelp").onclick = () => { if ($("#dock").hidden) return; if (MODE === "timo" && window.TIMO){ stopListening(); hush(); return TIMO.onHelp(); } explainQuestion(""); };
+const helperCancel = what => { if (HELPER) fetch("/api/cancel", {method:"POST", body:JSON.stringify(what)}).catch(() => {}); };
+function stopListening(){
+  listenToken++;
+  if (rec){ try{ rec.abort(); }catch(e){} rec = null; }
+  if (recAbort) recAbort();
+  if (micMode === "listening"){ helperCancel({listen:true}); setMic("idle"); }
+}
+function readQuestionAgain(){
+  stopListening();
+  talk([{text:currentQuestionEn(), rate:prefs.rate * 0.85}]).then(ok => { if (!ok) return; setMic("idle"); if (prefs.auto && canListen()) setTimeout(() => { if (micMode === "idle") startListening(true); }, 600); });
+}
+
+/* ---------- Pause: time to think, or to ask mum in Vietnamese. Nothing heard or said now counts as an answer. ---------- */
+const canPause = () => MODE === "timo" ? !!(window.TIMO && TIMO.isRunning()) : !S.ended;
+function pauseTalk(){
+  if (paused || !canPause()) return;
+  paused = true; pauseSerial++;
+  pauseGate = new Promise(r => { openGate = r; });
+  stopListening(); hush();
+  helperCancel({listen:true, speak:true});
+  setMic("idle");
+}
+function clearPause(){
+  if (!paused) return;
+  paused = false; pendingNext = null; noSpeechCount = 0;
+  openGate();
+  setMic("idle");
+}
+function resumeTalk(){
+  if (!paused) return;
+  const next = pendingNext;
+  clearPause();
+  if (MODE === "timo") return window.TIMO && TIMO.onResume();
+  if (next) return next();
+  if (!S.ended) readQuestionAgain();
+}
+$("#btnPause").onclick = () => paused ? resumeTalk() : pauseTalk();
+$("#btnHelp").onclick = () => { if ($("#dock").hidden) return; clearPause(); if (MODE === "timo" && window.TIMO){ stopListening(); hush(); return TIMO.onHelp(); } explainQuestion(""); };
 $("#btnAgain").onclick = () => {
+  if (paused) return resumeTalk();
   if (MODE === "timo" && window.TIMO){ stopListening(); hush(); return TIMO.onAgain(); }
   if (S.ended) return;
-  stopListening();
-  const q = currentQuestionEn();
-  talk([{text:q, rate:prefs.rate * 0.85}]).then(ok => { if (!ok) return; setMic("idle"); if (prefs.auto && canListen()) setTimeout(() => { if (micMode === "idle") startListening(true); }, 600); });
+  readQuestionAgain();
 };
 $("#btnMic").onclick = () => {
+  if (paused){
+    // Ready to answer: listen straight away if a question is waiting, otherwise pick the conversation back up
+    if (MODE === "timo" ? !(window.TIMO && TIMO.isWaiting()) : pendingNext) return resumeTalk();
+    clearPause();
+  }
   if (micMode === "listening"){ if (!HELPER){ try{ rec && rec.stop(); }catch(e){} } return; }
   noSpeechCount = 0;
   startListening(false);
@@ -1963,18 +2031,19 @@ $("#btnStart").onclick = async () => {
   }
 };
 $("#btnSettings").onclick = () => {
-  stopListening(); hush(); setMic("idle");
+  stopListening(); hush();
   if (window.TIMO) TIMO.stop();
+  clearPause(); setMic("idle");
   $("#btnStart").textContent = "Quay lại nói chuyện";
   $("#app").classList.add("on-start");
   $("#start").hidden = false; ["#head", "#chat", "#dock"].forEach(s => { $(s).hidden = true; });
 };
-$("#btnBye").onclick = () => { if (MODE === "timo"){ if (window.TIMO) TIMO.stop(); stopListening(); hush(); setMic("idle"); addSys("Tạm dừng buổi học. Bấm bánh răng để quay lại màn hình đầu."); return; } if (S.ended) return; stopListening(); addKid("Bye bye!"); closing(""); };
+$("#btnBye").onclick = () => { if (MODE === "timo"){ if (window.TIMO) TIMO.stop(); clearPause(); stopListening(); hush(); setMic("idle"); addSys("Tạm dừng buổi học. Bấm bánh răng để quay lại màn hình đầu."); return; } if (S.ended) return; clearPause(); stopListening(); addKid("Bye bye!"); closing(""); };
 $("#btnType").onclick = () => { const f = $("#typeForm"); f.hidden = !f.hidden; if (!f.hidden) $("#typeInput").focus(); };
 $("#typeForm").addEventListener("submit", e => {
   e.preventDefault();
   const v = $("#typeInput").value.trim(); if (!v) return;
-  $("#typeInput").value = ""; stopListening(); hush(); setMic("idle"); lastWords = [];
+  $("#typeInput").value = ""; clearPause(); stopListening(); hush(); setMic("idle"); lastWords = [];
   handleAnswer([v]);
 });
 /* ---------- Mode: Anna & Luna chat, or the TIMO math lesson ---------- */
